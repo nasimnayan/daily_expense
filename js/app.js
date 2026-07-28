@@ -671,6 +671,11 @@ function viewPlan() {
 
 function viewSet() {
   const m = meta(), cfg = syncCfg() || {};
+  /* Warn on the stored blob, not the wire size, but calibrated against the
+     wire: the base64 body GitHub receives runs about 1.33x the blob, and its
+     Contents API caps at 1 MB. 600 KB stored is roughly 800 KB on the wire,
+     which leaves several hundred more entries of room after the first warning
+     rather than the handful a 700 KB threshold would have left. */
   const kb = (blobSize() / 1024).toFixed(0);
   let h = `<section class="sec"><h3>${t('language')}</h3>
     <div class="togg"><button data-lang="0" class="${LANG === 0 ? 'on' : ''}">বাংলা</button>
@@ -708,7 +713,7 @@ function viewSet() {
       <input type="file" id="bkFile" name="bkFile" accept=".json" class="hide">
     </div>
     <div class="note">${t('dataInfo')}: <b class="num">${kb} KB</b> · <b class="num">${S.txns.length}</b> ${t('entries')}</div>
-    ${Number(kb) > 700 ? `<div class="warn">${t('sizeWarn')}</div>` : ''}
+    ${Number(kb) > 600 ? `<div class="warn">${t('sizeWarn')}</div>` : ''}
   </section>`;
 
   h += `<section class="sec"><h3>${LANG ? 'Month and budget' : 'মাস ও বাজেট'}</h3>
