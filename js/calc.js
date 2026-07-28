@@ -96,8 +96,19 @@ export function dailyBudget(S, p) {
 export const liquid = S => S.accts.reduce((s, a) => s + (Number(a.bal) || 0), 0);
 export const dpsPaidTotal = S => S.dps.reduce((s, d) => s + (d.paid || []).length * (Number(d.inst) || 0), 0);
 export const assetsTotal = S => S.assets.reduce((s, a) => s + (Number(a.value) || 0), 0);
-export const lentOut = S => S.lends.filter(l => !l.settled && l.dir === 'gave').reduce((s, l) => s + (Number(l.amount) || 0), 0);
-export const borrowed = S => S.lends.filter(l => !l.settled && l.dir === 'took').reduce((s, l) => s + (Number(l.amount) || 0), 0);
+/* A lend row keeps the original amount and a list of part-repayments beside it,
+   so "৳5,000 lent, ৳2,000 back" stays one row that still knows both figures.
+   A row written before part-repayment existed has no `repays` at all, which
+   reads as nothing repaid — so the two totals below come out exactly as they
+   did before, and old data needs no rewriting. */
+export const lendPaid = l => (l.repays || []).reduce((s, r) => s + (Number(r.amount) || 0), 0);
+export const lendLeft = l => Math.max(0, (Number(l.amount) || 0) - lendPaid(l));
+/* Open means still owed: not ticked off by hand, and something left to pay. */
+export const lendOpen = l => !l.settled && lendLeft(l) > 0;
+
+const openLends = (S, dir) => S.lends.filter(l => l.dir === dir && lendOpen(l));
+export const lentOut = S => openLends(S, 'gave').reduce((s, l) => s + lendLeft(l), 0);
+export const borrowed = S => openLends(S, 'took').reduce((s, l) => s + lendLeft(l), 0);
 export const loansOut = S => S.loans.reduce((s, l) => s + (Number(l.out) || 0), 0);
 export const totalEmi = S => S.loans.reduce((s, l) => s + (Number(l.emi) || 0), 0);
 export const netWorth = S =>

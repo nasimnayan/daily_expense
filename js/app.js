@@ -72,6 +72,12 @@ const STR = {
   'person': ['কার সাথে', 'Person'],
   'gave': ['ধার দিয়েছি', 'I lent'], 'took': ['ধার নিয়েছি', 'I borrowed'],
   'settle': ['শোধ হয়েছে', 'Settled'],
+  'repay': ['কিছু শোধ', 'Part paid'],
+  'repayTitle': ['শোধের হিসাব', 'Record a repayment'],
+  'gotBack': ['ফেরত পেলাম', 'Received back'],
+  'paidBack': ['ফেরত দিলাম', 'Paid back'],
+  'lendHint': ['কাকে ধার দিয়েছেন বা কার কাছ থেকে নিয়েছেন — নাম, টাকা আর তারিখ। কিছু কিছু শোধ হলে "কিছু শোধ" দিয়ে বসান, বাকিটা নিজেই হিসাব হবে।',
+    'Who you lent to, or borrowed from — name, amount and date. As parts come back, add them with "Part paid" and the remainder is worked out for you.'],
   'target': ['লক্ষ্য টাকা', 'Target'],
   'deadline': ['কত তারিখের মধ্যে', 'Deadline'],
   'needMonthly': ['মাসে লাগবে', 'Needed per month'],
@@ -235,6 +241,9 @@ function migrate(st) {
   }
   /* v1 fixed monthly items had no account, so they debited nothing */
   st.recur.forEach(r => { if (!r.acct) r.acct = st.accts[0] && st.accts[0].id; });
+  /* v2 lend rows had no part-repayment list. An empty one means nothing repaid,
+     so every existing row keeps the balance it already showed. */
+  st.lends.forEach(l => { if (!Array.isArray(l.repays)) l.repays = []; });
   /* Existing txn.date values are deliberately left alone. Pinning the clock to
      Dhaka changes how NEW dates are derived; silently moving old entries to a
      different day would be worse than the problem it solves. */
@@ -566,18 +575,34 @@ function viewAcct() {
 
   /* lending */
   h += `<section class="sec"><h3>${t('lending')}</h3><div class="ledger">`;
-  h += S.lends.length ? S.lends.map(l => `<div class="row"><div class="tick">${l.settled ? '✓' : ''}</div>
-      <div class="lab"><b>${esc(l.person)}</b><span>${l.dir === 'gave' ? t('gave') : t('took')} · ${dateMid(l.date)}</span></div>
-      <div class="amt num ${l.dir === 'gave' ? 'in' : 'out'}">${fmt(l.amount)}
-        ${l.settled ? '' : `<button class="btn sm ghost" data-settle="${l.id}">${t('settle')}</button>`}
-        <button class="del" data-dellend="${l.id}" aria-label="${t('del')}">×</button></div></div>`).join('')
+  h += S.lends.length ? S.lends.map(l => {
+    const open = C.lendOpen(l), paid = C.lendPaid(l), left = C.lendLeft(l);
+    /* Direction, date and note read as one subtitle. Any of the three can be
+       missing on an older row, so empties are dropped rather than left as
+       stray separators. */
+    const sub = [l.dir === 'gave' ? t('gave') : t('took'), l.date ? dateMid(l.date) : '', l.note ? esc(l.note) : '']
+      .filter(Boolean).join(' · ');
+    return `<div class="row"><div class="tick">${open ? '' : '✓'}</div>
+      <div class="lab"><b>${esc(l.person)}</b><span>${sub}</span>
+        ${paid ? `<span class="part">${LANG ? `${fmt(paid)} of ${fmt(l.amount)} back` : `${fmt(l.amount)} এর মধ্যে ${fmt(paid)} শোধ`}</span>` : ''}</div>
+      <div class="amt num ${l.dir === 'gave' ? 'in' : 'out'}">${fmt(open ? left : l.amount)}
+        ${open ? `<button class="btn sm ghost" data-lendrepay="${l.id}">${t('repay')}</button>
+        <button class="btn sm ghost" data-settle="${l.id}">${t('settle')}</button>` : ''}
+        <button class="del" data-dellend="${l.id}" aria-label="${t('del')}">×</button></div></div>`;
+  }).join('')
     : `<div class="empty">${LANG ? 'Nothing outstanding.' : 'কিছু বাকি নেই।'}</div>`;
   h += `</div><div class="grid2" style="margin-top:12px">
       <div><label class="fl" for="ldPerson">${t('person')}</label><input class="inp w" id="ldPerson" name="ldPerson"></div>
       <div><label class="fl" for="ldAmt">${t('amount')}</label><input class="inp w num" id="ldAmt" name="ldAmt" type="number" inputmode="numeric"></div>
     </div>
+    <div class="grid2">
+      <div><label class="fl" for="ldDate">${t('date')}</label>
+        <input class="inp w" id="ldDate" name="ldDate" type="date" value="${todayISO()}"></div>
+      <div><label class="fl" for="ldNote">${t('note')}</label><input class="inp w" id="ldNote" name="ldNote"></div>
+    </div>
     <div class="togg" style="margin-top:10px"><button id="ldGave" class="on">${t('gave')}</button><button id="ldTook">${t('took')}</button></div>
-    <button class="btn ghost sm" id="ldAdd" style="margin-top:10px">${t('add')}</button></section>`;
+    <button class="btn ghost sm" id="ldAdd" style="margin-top:10px">${t('add')}</button>
+    <div class="note">${t('lendHint')}</div></section>`;
 
   /* other savings */
   h += `<section class="sec"><h3>${t('assets')}</h3><div class="ledger">`;
@@ -790,7 +815,25 @@ function openSheet(mode, payload) {
       <button class="btn wide mg" id="shPay" style="margin-top:16px">${t('markPaid')}</button>`;
   }
 
-  const title = mode === 'pay' ? t('payTitle') : (SH.txn && SH.txn.id ? t('editEntry') : t('addExpense'));
+  /* Part-repayment on a lend row. The amount defaults to everything still
+     owed, so "they paid it all back" is one tap, and typing over it records a
+     part instead. */
+  if (mode === 'repay') {
+    const l = S.lends.find(x => x.id === SH.id);
+    if (!l) { closeSheet(); return; }
+    const left = C.lendLeft(l);
+    body = `<div class="note">${esc(l.person)} · ${l.dir === 'gave' ? t('gotBack') : t('paidBack')}
+        · ${t('outstanding')} ${fmt(left)}</div>
+      <label class="fl" for="shAmt">${t('amount')}</label>
+      <input class="inp w num" id="shAmt" name="shAmt" type="number" inputmode="numeric" min="0" max="${left}" value="${left}">
+      <label class="fl" for="shDate">${t('date')}</label>
+      <input class="inp w" id="shDate" name="shDate" type="date" value="${today}">
+      <button class="btn wide mg" id="shRepay" style="margin-top:16px">${t('add')}</button>`;
+  }
+
+  const title = mode === 'pay' ? t('payTitle')
+    : mode === 'repay' ? t('repayTitle')
+    : (SH.txn && SH.txn.id ? t('editEntry') : t('addExpense'));
   $('#sheet').innerHTML = `<div class="box">
     <div class="grab" aria-hidden="true"></div>
     <div class="head"><h3 id="sheetTitle">${title}</h3><button class="x" id="shClose" aria-label="${LANG ? 'Close' : 'বন্ধ'}">×</button></div>
@@ -897,6 +940,24 @@ async function doPay() {
   change();
 }
 
+/* Records part of a debt coming back. Deliberately does NOT touch an account
+   balance: lending is not spending, and putting it through applyTxn would show
+   a loan to a friend as a month of overspending. */
+function doRepay() {
+  const l = S.lends.find(x => x.id === SH.id);
+  if (!l) return closeSheet();
+  const amt = numv('shAmt');
+  if (!amt) return toast(t('enterAmount'));
+  if (!Array.isArray(l.repays)) l.repays = [];
+  /* Clamped, so a slip of the keyboard cannot make a row owe less than nothing
+     and quietly pull the net-worth total off. */
+  l.repays.push({ id: uid(), amount: Math.min(amt, C.lendLeft(l)), date: val('shDate') || todayISO() });
+  if (C.lendLeft(l) <= 0) l.settled = true;
+  closeSheet();
+  toast(t('saved!'));
+  change();
+}
+
 document.addEventListener('click', async e => {
   const b = e.target.closest('button');
   if (!b) return;
@@ -912,6 +973,7 @@ document.addEventListener('click', async e => {
   if (b.id === 'shPlanned') { SH.txn.planned = !SH.planned; return reopenSheet(); }
   if (b.id === 'shSave') return saveSheetTxn();
   if (b.id === 'shPay') return doPay();
+  if (b.id === 'shRepay') return doRepay();
 
   if (d.tab) { TAB = d.tab; render(); window.scrollTo(0, 0); return; }
   if (d.day) { openDay = openDay === d.day ? null : d.day; return render(); }
@@ -972,10 +1034,12 @@ document.addEventListener('click', async e => {
     if (!val('ldPerson') || !numv('ldAmt')) return toast(t('enterAmount'));
     S.lends.push({
       id: uid(), person: val('ldPerson'), amount: numv('ldAmt'),
-      dir: $('#ldGave').classList.contains('on') ? 'gave' : 'took', date: todayISO(), settled: false,
+      dir: $('#ldGave').classList.contains('on') ? 'gave' : 'took',
+      date: val('ldDate') || todayISO(), note: val('ldNote'), repays: [], settled: false,
     });
     return change();
   }
+  if (d.lendrepay) { openSheet('repay', { id: d.lendrepay }); return; }
   if (d.settle) { const l = S.lends.find(x => x.id === d.settle); if (l) l.settled = true; return change(); }
   if (d.dellend) { S.lends = S.lends.filter(x => x.id !== d.dellend); return change(); }
 
@@ -1080,7 +1144,7 @@ document.addEventListener('keydown', e => {
   if (e.key === 'Escape' && SH) return closeSheet();
   if (e.key === 'Enter' && e.target.id === 'shAmt') {
     e.preventDefault();
-    const s = $('#shSave') || $('#shPay'); if (s) s.click();
+    const s = $('#shSave') || $('#shPay') || $('#shRepay'); if (s) s.click();
   }
   if (e.key === 'Enter' && (e.target.id === 'gPass' || e.target.id === 'gPass2')) $('#gGo').click();
 });

@@ -7,7 +7,7 @@
    connection you always get the current code, and the cache is only a
    fallback, so offline still works exactly as before. */
 
-const BUILD = '2026-07-28.1';
+const BUILD = '2026-07-28.2';
 const CACHE = `khata-${BUILD}`;
 
 const SHELL = [
@@ -46,7 +46,12 @@ self.addEventListener('fetch', e => {
 
   if (isShell(url)) {
     e.respondWith(
-      fetch(e.request)
+      /* `cache: 'reload'` matters more than it looks. Plain fetch(e.request)
+         still consults the browser HTTP cache, and neither this server nor
+         GitHub Pages sends no-cache on these files — so a released fix could
+         sit behind a stale copy for minutes even though this branch is
+         network-first and BUILD was bumped. This asks the network directly. */
+      fetch(url.href, { cache: 'reload', credentials: 'same-origin' })
         .then(res => {
           if (res.ok) caches.open(CACHE).then(c => c.put(e.request, res.clone()));
           return res;

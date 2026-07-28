@@ -72,6 +72,9 @@ header.top .clock i{font-style:normal;font-size:13px;color:var(--ink-3);margin-l
 .row .lab{min-width:0}
 .row .lab b{font-weight:500;font-size:15px;display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .row .lab span{font-size:12.5px;color:var(--ink-3)}
+/* How much of a debt has come back — its own line under the subtitle, so it
+   does not run together with the date. */
+.row .lab span.part{display:block;color:var(--teal)}
 .row .amt{font-size:16px;white-space:nowrap;text-align:right;display:flex;align-items:center;gap:2px;justify-content:flex-end}
 .row .amt.out{color:var(--brick)} .row .amt.in{color:var(--teal)}
 .row .del,.row .edit{
