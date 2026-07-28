@@ -7,7 +7,7 @@
    connection you always get the current code, and the cache is only a
    fallback, so offline still works exactly as before. */
 
-const BUILD = '2026-07-28.2';
+const BUILD = '2026-07-28.3';
 const CACHE = `khata-${BUILD}`;
 
 const SHELL = [
@@ -24,7 +24,14 @@ const isShell = url =>
 self.addEventListener('install', e => {
   e.waitUntil(
     caches.open(CACHE)
-      .then(c => c.addAll(SHELL))
+      /* addAll would fetch through the browser HTTP cache, so a brand new
+         BUILD could precache the very files it was bumped to replace. Each
+         file is asked for directly instead, and one failure does not sink
+         the rest. */
+      .then(c => Promise.all(SHELL.map(u =>
+        fetch(u, { cache: 'reload', credentials: 'same-origin' })
+          .then(r => (r.ok ? c.put(u, r) : null))
+          .catch(() => null))))
       .then(() => self.skipWaiting())
       .catch(() => self.skipWaiting())   // a single 404 must not block install
   );
@@ -45,18 +52,20 @@ self.addEventListener('fetch', e => {
   if (url.origin !== location.origin) return;      // let anything third-party go straight out
 
   if (isShell(url)) {
-    e.respondWith(
-      /* `cache: 'reload'` matters more than it looks. Plain fetch(e.request)
-         still consults the browser HTTP cache, and neither this server nor
-         GitHub Pages sends no-cache on these files — so a released fix could
-         sit behind a stale copy for minutes even though this branch is
-         network-first and BUILD was bumped. This asks the network directly. */
-      fetch(url.href, { cache: 'reload', credentials: 'same-origin' })
-        .then(res => {
-          if (res.ok) caches.open(CACHE).then(c => c.put(e.request, res.clone()));
-          return res;
-        })
-        .catch(() => caches.match(e.request).then(hit => hit || Response.error()))
+    /* `cache: 'reload'` matters more than it looks. Plain fetch(e.request)
+       still consults the browser HTTP cache, and neither this server nor
+       GitHub Pages sends no-cache on these files — so a released fix could sit
+       behind a stale copy for minutes even though this branch is network-first
+       and BUILD was bumped. This asks the network directly. */
+    const net = fetch(url.href, { cache: 'reload', credentials: 'same-origin' });
+    e.respondWith(net.catch(() => caches.match(e.request).then(hit => hit || Response.error())));
+    /* The copy kept for offline has to be written under waitUntil. Left as a
+       bare .then the browser is free to stop this worker the moment the
+       response is handed over, and the write is dropped — which is how an
+       offline launch could still show code from a release or two ago. */
+    e.waitUntil(
+      net.then(res => (res.ok ? caches.open(CACHE).then(c => c.put(e.request, res.clone())) : null))
+        .catch(() => {})
     );
     return;
   }

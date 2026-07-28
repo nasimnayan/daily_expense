@@ -585,7 +585,7 @@ function viewAcct() {
     return `<div class="row"><div class="tick">${open ? '' : '✓'}</div>
       <div class="lab"><b>${esc(l.person)}</b><span>${sub}</span>
         ${paid ? `<span class="part">${LANG ? `${fmt(paid)} of ${fmt(l.amount)} back` : `${fmt(l.amount)} এর মধ্যে ${fmt(paid)} শোধ`}</span>` : ''}</div>
-      <div class="amt num ${l.dir === 'gave' ? 'in' : 'out'}">${fmt(open ? left : l.amount)}
+      <div class="amt num ${l.dir === 'gave' ? 'in' : 'out'}">${fmt(paid ? left : l.amount)}
         ${open ? `<button class="btn sm ghost" data-lendrepay="${l.id}">${t('repay')}</button>
         <button class="btn sm ghost" data-settle="${l.id}">${t('settle')}</button>` : ''}
         <button class="del" data-dellend="${l.id}" aria-label="${t('del')}">×</button></div></div>`;
