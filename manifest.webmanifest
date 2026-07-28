@@ -1,0 +1,12 @@
+{
+  "name": "খাতা — personal ledger",
+  "short_name": "খাতা",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#EFF1EC",
+  "theme_color": "#14213A",
+  "icons": [
+    { "src": "./icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any maskable" }
+  ]
+}

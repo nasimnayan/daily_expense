@@ -1,0 +1,260 @@
+/* খাতা — one stylesheet, no framework, no webfont request.
+
+   The font stack names the nice Bangla faces first so they are used when the
+   device already has them, then falls back to what the OS ships. Nothing is
+   fetched over the network, which is why the app works fully offline and
+   nothing about your ledger leaks to a font CDN. */
+
+:root{
+  --ink:#14213A; --ink-2:#3B4A6B; --ink-3:#7A85A0;
+  --paper:#EFF1EC; --card:#F8F9F6; --rule:#C9CEC4; --rule-2:#DDE1D9;
+  --marigold:#E09B12; --marigold-d:#8A5C05;
+  --teal:#0F6E56; --teal-l:#E1F0EA;
+  --brick:#9E2B22; --brick-l:#F6E8E6;
+  --r:10px; --tap:44px;
+  --f-body:'Hind Siliguri','Noto Sans Bengali','Nirmala UI',system-ui,-apple-system,'Segoe UI',Roboto,sans-serif;
+  --f-disp:'Noto Serif Bengali','Hind Siliguri','Nirmala UI',Georgia,serif;
+  --f-num:ui-monospace,'SF Mono','Cascadia Mono','Roboto Mono',Consolas,monospace;
+}
+@media (prefers-color-scheme:dark){
+  :root{
+    --ink:#E8EAE4; --ink-2:#AFB6C4; --ink-3:#7D8598;
+    --paper:#12161C; --card:#1A1F27; --rule:#2E3542; --rule-2:#242A34;
+    --marigold:#EDAE33; --marigold-d:#F6C86A;
+    --teal:#4FBF9C; --teal-l:#12332A;
+    --brick:#E8756A; --brick-l:#331815;
+  }
+}
+
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%}
+body{
+  background:var(--paper); color:var(--ink);
+  font-family:var(--f-body); font-size:16px; line-height:1.6;
+  -webkit-font-smoothing:antialiased;
+  padding-bottom:env(safe-area-inset-bottom);
+}
+button,input,select,textarea{font:inherit;color:inherit}
+button{cursor:pointer;background:none;border:none}
+:focus-visible{outline:2px solid var(--marigold);outline-offset:2px}
+.num{font-family:var(--f-num);font-variant-numeric:tabular-nums;letter-spacing:-.02em}
+.hide{display:none !important}
+.sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)}
+
+/* ---------- shell ---------- */
+#app{max-width:620px;margin:0 auto;padding:0 16px 120px}
+header.top{
+  display:flex;align-items:baseline;gap:10px;
+  padding:20px 0 14px;border-bottom:1.5px solid var(--ink);margin-bottom:2px;
+}
+header.top h1{font-family:var(--f-disp);font-size:26px;font-weight:600;letter-spacing:-.01em}
+header.top .sub{font-size:12.5px;color:var(--ink-3);margin-left:auto;text-align:right;line-height:1.4}
+header.top .clock{font-size:19px;font-weight:500;color:var(--ink);letter-spacing:-.02em;line-height:1.15}
+header.top .clock i{font-style:normal;font-size:13px;color:var(--ink-3);margin-left:2px}
+#syncDot{display:inline-block;width:7px;height:7px;border-radius:50%;background:var(--ink-3);vertical-align:middle;margin-right:4px}
+#syncDot.ok{background:var(--teal)} #syncDot.warn{background:var(--marigold)} #syncDot.err{background:var(--brick)}
+
+/* ---------- save-failure banner: never quiet, never auto-dismissed ---------- */
+#banner{
+  position:sticky;top:0;z-index:50;margin:0 -16px 10px;padding:12px 16px;
+  background:var(--brick);color:#fff;font-size:14.5px;line-height:1.45;
+}
+#banner b{display:block;font-size:15px}
+
+/* ---------- ledger rows: the signature ---------- */
+.ledger{margin:0 -4px}
+.row{
+  display:grid;grid-template-columns:14px 1fr auto;align-items:center;gap:0 10px;
+  min-height:var(--tap);padding:7px 4px;border-bottom:1px solid var(--rule);
+}
+.row:last-child{border-bottom:1.5px solid var(--rule)}
+.row .tick{font-size:13px;color:var(--marigold);text-align:center;line-height:1}
+.row .lab{min-width:0}
+.row .lab b{font-weight:500;font-size:15px;display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.row .lab span{font-size:12.5px;color:var(--ink-3)}
+.row .amt{font-size:16px;white-space:nowrap;text-align:right;display:flex;align-items:center;gap:2px;justify-content:flex-end}
+.row .amt.out{color:var(--brick)} .row .amt.in{color:var(--teal)}
+.row .del,.row .edit{
+  color:var(--ink-3);font-size:15px;min-width:34px;min-height:34px;
+  display:inline-flex;align-items:center;justify-content:center;
+}
+.row .del:hover{color:var(--brick)} .row .edit:hover{color:var(--ink)}
+.row.head{min-height:0;padding:4px;border-bottom:1.5px solid var(--ink);font-size:11.5px;
+  letter-spacing:.06em;text-transform:uppercase;color:var(--ink-3)}
+.row.tap{cursor:pointer}
+.row.tap:hover{background:var(--card)}
+.empty{padding:26px 6px;color:var(--ink-3);font-size:14.5px;border-bottom:1px solid var(--rule)}
+
+/* ---------- hero ---------- */
+.hero{padding:18px 0 14px;border-bottom:1.5px solid var(--ink)}
+.hero .big{font-family:var(--f-num);font-size:44px;font-weight:500;line-height:1;letter-spacing:-.03em}
+.hero .cap{font-size:13px;color:var(--ink-3);margin-top:6px}
+.hero .top-line{display:flex;align-items:flex-end;justify-content:space-between;gap:12px}
+.bar{height:7px;background:var(--rule-2);border-radius:4px;overflow:hidden;margin:14px 0 8px}
+.bar i{display:block;height:100%;background:var(--teal);border-radius:4px;transition:width .35s}
+.bar i.over{background:var(--brick)}
+.barcap{display:flex;justify-content:space-between;gap:10px;font-size:12.5px;color:var(--ink-3)}
+
+/* ---------- sparkline ---------- */
+.spark{display:block;width:104px;height:34px;overflow:visible}
+.spark polyline{fill:none;stroke:var(--ink-3);stroke-width:1.5;stroke-linejoin:round;stroke-linecap:round}
+.spark .today{fill:var(--marigold)}
+.spark .base{stroke:var(--rule);stroke-width:1}
+
+/* ---------- upcoming ---------- */
+.up{border-left:3px solid var(--marigold);background:color-mix(in srgb,var(--marigold) 13%,transparent);
+  padding:12px 14px;margin:14px 0}
+.up h4{font-family:var(--f-disp);font-size:14.5px;font-weight:600;margin-bottom:8px}
+.up-row{display:grid;grid-template-columns:1fr auto auto;gap:10px;align-items:baseline;
+  padding:5px 0;font-size:14.5px}
+.up-row+.up-row{border-top:1px solid color-mix(in srgb,var(--marigold) 28%,transparent)}
+.up-row .w{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.up-row .w small{color:var(--ink-2);font-size:12px;margin-left:5px}
+.up-row .when{font-size:12.5px;color:var(--ink-2);min-width:62px;text-align:right}
+.up-row.soon .when{color:var(--brick);font-weight:500}
+
+/* ---------- kpi ---------- */
+.kpis{display:grid;grid-template-columns:1fr 1fr;gap:1px;background:var(--rule);
+  border:1px solid var(--rule);border-radius:var(--r);overflow:hidden;margin:14px 0}
+.kpi{background:var(--card);padding:13px 14px;text-align:left}
+.kpi .k{font-size:11.5px;letter-spacing:.05em;text-transform:uppercase;color:var(--ink-3)}
+.kpi .v{font-family:var(--f-num);font-size:23px;font-weight:500;line-height:1.25;margin-top:3px;letter-spacing:-.02em}
+.kpi .n{font-size:12px;color:var(--ink-3)}
+.kpi .v.good{color:var(--teal)} .kpi .v.bad{color:var(--brick)} .kpi .v.mid{color:var(--marigold-d)}
+
+/* ---------- day cards (history) ---------- */
+.daycard{border-bottom:1.5px solid var(--rule);padding:0 0 4px}
+.dayhead{display:grid;grid-template-columns:1fr auto;gap:10px;align-items:baseline;
+  width:100%;text-align:left;padding:13px 2px;min-height:var(--tap)}
+.dayhead b{font-family:var(--f-disp);font-size:15.5px;font-weight:600}
+.dayhead .sub{font-size:12.5px;color:var(--ink-3);display:block;font-weight:400;font-family:var(--f-body)}
+.dayhead .tot{font-family:var(--f-num);font-size:17px;color:var(--brick)}
+.dayhead .tot i{font-style:normal;color:var(--teal);font-size:13px;margin-left:6px}
+.dayhead .chev{color:var(--ink-3);font-size:12px;margin-left:8px}
+.monthsep{display:flex;justify-content:space-between;align-items:baseline;
+  padding:20px 2px 6px;border-bottom:1.5px solid var(--ink);margin-bottom:2px}
+.monthsep b{font-family:var(--f-disp);font-size:13px;letter-spacing:.05em;text-transform:uppercase;color:var(--ink-3)}
+.monthsep span{font-family:var(--f-num);font-size:14px;color:var(--ink-2)}
+
+/* ---------- forms ---------- */
+.sec{padding:18px 0;border-bottom:1px solid var(--rule)}
+.sec:last-child{border-bottom:none}
+.sec h3,.qa h3{font-family:var(--f-disp);font-size:15px;font-weight:600;margin-bottom:10px}
+.chips{display:flex;flex-wrap:wrap;gap:7px}
+.chip{
+  border:1px solid var(--rule);border-radius:999px;padding:9px 14px;font-size:14px;
+  background:var(--card);transition:.15s;min-height:38px;
+}
+.chip:hover{border-color:var(--ink-3)}
+.chip.on{background:var(--ink);color:var(--paper);border-color:var(--ink)}
+.chip.mg.on{background:var(--marigold);border-color:var(--marigold);color:#2A1B00}
+.field{display:flex;gap:8px;margin-top:12px}
+.field input,.field select,.inp{
+  flex:1;min-width:0;padding:12px;border:1px solid var(--rule);border-radius:var(--r);
+  background:var(--card);font-size:16px;min-height:var(--tap);
+}
+.field input.num{font-size:19px;font-weight:500}
+.btn{
+  padding:12px 20px;border-radius:var(--r);background:var(--ink);color:var(--paper);
+  font-weight:500;font-size:15px;border:1px solid var(--ink);min-height:var(--tap);
+}
+.btn:hover{opacity:.9}
+.btn.ghost{background:transparent;color:var(--ink);border-color:var(--rule)}
+.btn.mg{background:var(--marigold);border-color:var(--marigold);color:#2A1B00}
+.btn.sm{padding:8px 13px;font-size:13.5px;min-height:36px}
+.btn.wide{width:100%}
+.btn.danger{color:var(--brick);border-color:var(--brick);background:transparent}
+.togg{display:flex;border:1px solid var(--rule);border-radius:var(--r);overflow:hidden}
+.togg button{flex:1;padding:11px 0;font-size:14.5px;background:var(--card);min-height:var(--tap)}
+.togg button.on{background:var(--ink);color:var(--paper)}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+label.fl{display:block;font-size:12.5px;color:var(--ink-3);margin:10px 0 4px}
+.inp.w{width:100%}
+.note{font-size:13px;color:var(--ink-3);margin-top:8px}
+/* Callout boxes. Deliberately NOT named .good/.bad — those are KPI colour
+   modifiers, and a bare .good rule here would paint a box behind every
+   healthy KPI number. */
+.warn{background:var(--brick-l);border-left:3px solid var(--brick);padding:11px 13px;font-size:14px;margin:12px 0}
+.okbox{background:var(--teal-l);border-left:3px solid var(--teal);padding:11px 13px;font-size:14px;margin:12px 0}
+.pill{font-size:11.5px;padding:2px 8px;border-radius:999px;border:1px solid var(--rule);color:var(--ink-3)}
+.pill.due{background:var(--brick-l);border-color:var(--brick);color:var(--brick)}
+.pill.ok{background:var(--teal-l);border-color:var(--teal);color:var(--teal)}
+
+/* ---------- category bars ---------- */
+.bars{margin-top:6px}
+.cbar{display:grid;grid-template-columns:1fr auto;gap:8px;align-items:center;padding:8px 0;
+  border-bottom:1px solid var(--rule-2);font-size:14px}
+.cbar .t{grid-column:1/-1;display:flex;justify-content:space-between;gap:8px}
+.cbar .track{grid-column:1/-1;height:5px;background:var(--rule-2);border-radius:3px;overflow:hidden}
+.cbar .track i{display:block;height:100%;background:var(--ink-2)}
+.cbar .track i.over{background:var(--brick)}
+
+/* ---------- nav ---------- */
+nav{
+  position:fixed;left:0;right:0;bottom:0;z-index:40;background:var(--card);
+  border-top:1.5px solid var(--ink);display:flex;
+  padding-bottom:env(safe-area-inset-bottom);
+}
+nav button{
+  flex:1;padding:8px 2px 9px;font-size:11.5px;color:var(--ink-3);
+  display:flex;flex-direction:column;align-items:center;gap:3px;
+  border-top:2.5px solid transparent;min-height:var(--tap);
+}
+nav button .ic{font-size:17px;line-height:1}
+nav button.on{color:var(--ink);border-top-color:var(--marigold)}
+
+/* ---------- floating add ---------- */
+#fab{
+  position:fixed;right:16px;bottom:calc(64px + env(safe-area-inset-bottom));z-index:45;
+  background:var(--marigold);color:#2A1B00;border-radius:999px;
+  padding:14px 20px;font-size:15px;font-weight:600;
+  box-shadow:0 6px 20px rgba(0,0,0,.22);min-height:var(--tap);
+}
+#fab:hover{filter:brightness(1.05)}
+
+@media(min-width:700px){
+  nav{position:static;border-top:none;border-bottom:1.5px solid var(--ink);max-width:620px;
+    margin:0 auto 4px;background:transparent}
+  nav button{flex-direction:row;font-size:14px;padding:11px 6px;border-top:none;
+    border-bottom:2.5px solid transparent}
+  nav button.on{border-bottom-color:var(--marigold)}
+  #app{padding-bottom:48px}
+  #fab{bottom:24px}
+}
+
+/* ---------- gate ---------- */
+#gate{position:fixed;inset:0;z-index:90;background:var(--paper);display:flex;
+  align-items:center;justify-content:center;padding:24px;overflow:auto}
+#gate .box{width:100%;max-width:380px}
+#gate h2{font-family:var(--f-disp);font-size:32px;font-weight:600;letter-spacing:-.01em}
+#gate p{font-size:14px;color:var(--ink-3);margin:6px 0 18px}
+#gate .err{color:var(--brick);font-size:13.5px;margin-top:10px;min-height:20px}
+#gate .intro{border-left:3px solid var(--marigold);padding:10px 13px;margin:0 0 18px;
+  font-size:13.5px;line-height:1.6;color:var(--ink-2);
+  background:color-mix(in srgb,var(--marigold) 10%,transparent)}
+#gate .intro b{color:var(--ink)}
+.stitch{display:flex;gap:5px;margin-top:24px}
+.stitch i{width:16px;height:3px;background:var(--marigold);border-radius:2px}
+.stitch i:nth-child(2){opacity:.6} .stitch i:nth-child(3){opacity:.3}
+
+/* ---------- quick-add sheet ---------- */
+#sheet{position:fixed;inset:0;z-index:80;display:flex;align-items:flex-end;justify-content:center;
+  background:rgba(10,14,20,.45)}
+#sheet .box{
+  width:100%;max-width:620px;background:var(--paper);border-top:1.5px solid var(--ink);
+  border-radius:16px 16px 0 0;padding:8px 16px calc(20px + env(safe-area-inset-bottom));
+  max-height:92vh;overflow:auto;
+}
+#sheet .grab{width:38px;height:4px;background:var(--rule);border-radius:2px;margin:6px auto 12px}
+#sheet .head{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px}
+#sheet .head h3{font-family:var(--f-disp);font-size:18px;font-weight:600}
+#sheet .x{font-size:22px;color:var(--ink-3);min-width:var(--tap);min-height:var(--tap)}
+@media(min-width:700px){
+  #sheet{align-items:center}
+  #sheet .box{border-radius:16px;border:1.5px solid var(--ink);max-height:88vh}
+}
+
+#toast{position:fixed;left:50%;transform:translateX(-50%);bottom:96px;z-index:95;
+  background:var(--ink);color:var(--paper);padding:10px 17px;border-radius:999px;font-size:14px;
+  opacity:0;transition:.25s;pointer-events:none;max-width:88vw;text-align:center}
+#toast.on{opacity:1}

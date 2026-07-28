@@ -1,0 +1,19 @@
+# Personal setup notes — names your private data repo and token steps. Never commit.
+MY-SETUP.md
+
+# Delivery archive, not source
+files.zip
+
+# Editor / OS noise
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+
+# Anything you deliberately keep local
+*.local
+
+# Never commit a real backup — it is encrypted, but it is still your ledger
+khata-*.json
+
+node_modules/

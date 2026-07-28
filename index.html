@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="bn">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>খাতা</title>
+<meta name="description" content="ব্যক্তিগত হিসাবের খাতা। সব তথ্য আপনার ডিভাইসে এনক্রিপ্ট করা থাকে।">
+<meta name="theme-color" content="#14213A">
+<link rel="manifest" href="./manifest.webmanifest">
+<link rel="icon" href="./icon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="./icon.svg">
+<link rel="stylesheet" href="./app.css">
+</head>
+<body>
+
+<!-- passphrase gate -->
+<div id="gate">
+  <div class="box">
+    <h2>খাতা</h2>
+    <p id="gSub">পাসফ্রেজ দিন</p>
+
+    <div class="intro hide" id="gIntro">
+      <b>এটা আপনার নিজের হিসাবের খাতা।</b><br>
+      প্রতিদিনের খরচ, আয়, ঋণ, ডিপিএস আর সামনের বিল — সব এক জায়গায়।<br><br>
+      যে পাসফ্রেজটা এখন দিবেন, সেটা দিয়েই সব তথ্য <b>এনক্রিপ্ট</b> হবে। এটা কখনো
+      আপনার ডিভাইস ছেড়ে যায় না — আমরাও পড়তে পারব না, GitHub-ও পারবে না।
+      <b>ভুলে গেলে তথ্য আর ফেরানো যাবে না</b>, তাই পাসওয়ার্ড ম্যানেজারে রেখে দিন।
+    </div>
+
+    <label class="fl" for="gPass">পাসফ্রেজ</label>
+    <input class="inp w" type="password" id="gPass" name="passphrase" autocomplete="current-password">
+
+    <div id="gConfirmWrap" class="hide">
+      <label class="fl" for="gPass2">আবার লিখুন</label>
+      <input class="inp w" type="password" id="gPass2" name="passphrase-confirm" autocomplete="new-password">
+    </div>
+
+    <div class="err" id="gErr" role="status" aria-live="polite"></div>
+    <button class="btn wide" id="gGo">খুলুন</button>
+    <div class="stitch" aria-hidden="true"><i></i><i></i><i></i></div>
+  </div>
+</div>
+
+<!-- app -->
+<div id="shell" class="hide">
+  <nav aria-label="প্রধান মেনু">
+    <button data-tab="over" class="on"><span class="ic" aria-hidden="true">◉</span><span data-t="nav.over"></span></button>
+    <button data-tab="days"><span class="ic" aria-hidden="true">▤</span><span data-t="nav.days"></span></button>
+    <button data-tab="acct"><span class="ic" aria-hidden="true">▣</span><span data-t="nav.acct"></span></button>
+    <button data-tab="plan"><span class="ic" aria-hidden="true">◇</span><span data-t="nav.plan"></span></button>
+    <button data-tab="set"><span class="ic" aria-hidden="true">⚙</span><span data-t="nav.set"></span></button>
+  </nav>
+
+  <div id="app">
+    <div id="banner" class="hide" role="alert"></div>
+    <header class="top">
+      <h1 id="pgTitle"></h1>
+      <div class="sub">
+        <div class="clock num" id="clock">--:--:--</div>
+        <div id="dateTxt"></div>
+        <div><span id="syncDot" aria-hidden="true"></span><span id="syncTxt"></span></div>
+      </div>
+    </header>
+    <main id="view"></main>
+  </div>
+
+  <button id="fab" aria-haspopup="dialog"><span aria-hidden="true">⊕</span> <span data-t="fab"></span></button>
+</div>
+
+<!-- quick add / edit sheet -->
+<div id="sheet" class="hide" role="dialog" aria-modal="true" aria-labelledby="sheetTitle"></div>
+
+<div id="toast" role="status" aria-live="polite"></div>
+
+<script type="module" src="./js/app.js"></script>
+</body>
+</html>

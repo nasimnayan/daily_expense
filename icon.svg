@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+<rect width="512" height="512" fill="#14213A"/>
+<g stroke="#5A6480" stroke-width="6">
+<line x1="96" y1="188" x2="416" y2="188"/><line x1="96" y1="256" x2="416" y2="256"/>
+<line x1="96" y1="324" x2="416" y2="324"/><line x1="96" y1="392" x2="416" y2="392"/>
+</g>
+<g fill="#E09B12"><rect x="96" y="112" width="86" height="14" rx="7"/>
+<rect x="196" y="112" width="86" height="14" rx="7" opacity=".6"/>
+<rect x="296" y="112" width="86" height="14" rx="7" opacity=".3"/></g>
+<text x="256" y="300" font-family="serif" font-size="150" font-weight="600" fill="#EFF1EC" text-anchor="middle">৳</text>
+</svg>
