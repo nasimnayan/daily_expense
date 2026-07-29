@@ -115,6 +115,8 @@ const STR = {
   'wrongPass': ['পাসফ্রেজ মেলেনি', 'Passphrase does not match'],
   'passNoMatch': ['দুইটা ঘরে একই পাসফ্রেজ লিখুন — এখন দুইটা আলাদা।',
     'The two boxes hold different passphrases. Type the same one in both.'],
+  'notSecure': ['এই ঠিকানায় ব্রাউজার এনক্রিপশন বন্ধ রাখে, তাই খাতা এখানে খুলবে না — পাসফ্রেজে কোনো ভুল নেই। https ঠিকানা ব্যবহার করুন, বা কম্পিউটারে localhost দিয়ে খুলুন। (http://192.168.x.x এভাবে হবে না।)',
+    'The browser switches encryption off on this address, so the khata cannot open here — nothing is wrong with your passphrase. Use the https address, or localhost on a computer. A plain http:// LAN address will not work.'],
   'setPass': ['একটা পাসফ্রেজ ঠিক করুন', 'Choose a passphrase'],
   'open': ['খুলুন', 'Open'], 'create': ['শুরু করুন', 'Start'],
   'noBudget': ['বাজেট দেওয়া হয়নি', 'No budget set'],
@@ -1530,7 +1532,20 @@ function paintGate() {
      into the box while the confirm box got what was actually typed — two masked
      fields, one character apart, no way to see it. */
   $('#gPass').autocomplete = first ? 'new-password' : 'current-password';
+  /* Web Crypto only exists in a secure context. Opened over plain http on a LAN
+     address — http://172.28.4.85:8123, say, which is exactly how you would try
+     the app from your phone — crypto.subtle is undefined, deriveKey throws, and
+     the old catch reported that as a wrong passphrase. Hours can go into
+     retyping a passphrase that was never the problem. Say it up front and do
+     not let the button pretend otherwise. */
+  if (!cryptoReady()) {
+    $('#gErr').textContent = t('notSecure');
+    $('#gGo').disabled = true;
+    $('#gGo').style.opacity = '.5';
+  }
 }
+
+const cryptoReady = () => !!(window.isSecureContext && window.crypto && window.crypto.subtle);
 
 /* Reveal both boxes together: the point is to compare them. */
 $('#gShow').addEventListener('click', () => {
@@ -1575,7 +1590,15 @@ $('#gGo').addEventListener('click', async () => {
       S = migrate(r.state);
       LANG = S.settings.lang || 0;
     }
-  } catch { err.textContent = t('wrongPass'); return; }
+  } catch (e) {
+    /* Only call it a wrong passphrase when it can be one. Anything else — no
+       Web Crypto because the origin is insecure, a corrupt blob — gets its own
+       message, because "retype your passphrase" is useless advice for those. */
+    err.textContent = !cryptoReady() ? t('notSecure')
+      : hasVault() ? t('wrongPass')
+      : String(e && e.message || e);
+    return;
+  }
   PASS = pass;              // so sync can join a book sealed on the other device
   err.textContent = '';
   $('#gate').classList.add('hide');
