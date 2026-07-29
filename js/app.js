@@ -487,16 +487,24 @@ function row(tick, title, sub, amt, cls, tail) {
 const bar = (pct, over) => `<div class="bar"><i class="${over ? 'over' : ''}" style="width:${Math.min(100, Math.max(0, pct))}%"></i></div>`;
 const kpi = (k, v, n, cls) => `<div class="kpi"><div class="k">${k}</div><div class="v ${cls || ''} num">${v}</div>${n ? `<div class="n">${n}</div>` : ''}</div>`;
 
-function spark(days) {
-  const w = 104, h = 34, max = Math.max(1, ...days.map(d => d.v));
-  const step = days.length > 1 ? w / (days.length - 1) : w;
-  const y = v => (h - 3 - (v / max) * (h - 8)).toFixed(1);
-  const pts = days.map((d, i) => `${(i * step).toFixed(1)},${y(d.v)}`).join(' ');
-  const last = days[days.length - 1];
-  return `<svg class="spark" viewBox="0 0 ${w} ${h}" role="img" aria-label="${t('last7')}">
-    <line class="base" x1="0" y1="${h - 1}" x2="${w}" y2="${h - 1}"/>
-    <polyline points="${pts}"/>
-    <circle class="today" cx="${w}" cy="${y(last.v)}" r="2.8"/></svg>`;
+/* Seven days as bars in their own card, which is what the reference design asks
+   for. The old 104px sparkline was squeezed in beside the day's total: it could
+   show a direction but no value you could compare one day against another. Bars
+   answer the question actually being asked — was today unusual? Today is the
+   darker bar on the right. Only the two ends are labelled, because seven weekday
+   names at this width would collide. */
+function bars7(days) {
+  const max = Math.max(1, ...days.map(d => d.v));
+  const cells = days.map((d, i) => {
+    const now = i === days.length - 1;
+    return `<div class="b7${now ? ' now' : ''}" title="${fmt(d.v)}">
+      <span class="b7t"><i style="height:${Math.max(2, (d.v / max) * 100)}%"></i></span>
+    </div>`;
+  }).join('');
+  return `<section class="chartcard"><h4>${t('last7')}</h4>
+    <div class="bars7" role="img" aria-label="${t('last7')}">${cells}</div>
+    <div class="b7cap"><span>${LANG ? '7 days ago' : '৭ দিন আগে'}</span><span>${LANG ? 'Today' : 'আজ'}</span></div>
+  </section>`;
 }
 
 function catBars(list, total) {
@@ -530,12 +538,18 @@ function dueSub(u) {
 function upcomingBlock() {
   const list = C.upcomingAll(S, todayISO(), 30);
   if (!list.length) return '';
+  /* Each row carries a glyph in a tinted square, the name with its due date
+     beneath it, and the amount right-aligned in tabular figures. The due date
+     moved under the name because as a third column it was competing with the
+     amount for the same narrow edge of a 412px screen. */
+  const ICON = { note: '◈', recur: '↻', loan: '⌂', dps: '▤' };
   return `<div class="up"><h4>${t('upcoming')}</h4>` + list.slice(0, 6).map(u => {
     const sub = dueSub(u);
     return `<div class="up-row${u.left <= 3 ? ' soon' : ''}">
-      <span class="w">${esc(u.label)}${sub ? `<small>${esc(sub)}</small>` : ''}</span>
+      <span class="upic" aria-hidden="true">${ICON[u.kind] || '•'}</span>
+      <span class="w"><b>${esc(u.label)}</b>
+        <small>${esc(dueLabel(u.left))}${sub ? ' · ' + esc(sub) : ''}</small></span>
       <span class="num">${fmt(u.amount)}</span>
-      <span class="when">${dueLabel(u.left)}</span>
     </div>`;
   }).join('') + `</div>`;
 }
@@ -552,14 +566,12 @@ function viewOver() {
   const nw = C.netWorth(S), rw = C.runway(S, p, today), d = C.dti(S, p);
   const proj = C.projectedSpend(S, p, today), fv = C.fixedVar(S, p), ps = C.plannedShare(S, p);
 
+  /* Caption above the figure, as in the reference: you read what it is, then how
+     much. Red only when the day is over budget — the number carries the verdict
+     rather than needing a separate warning. */
   let h = `<section class="hero">
-    <div class="top-line">
-      <div>
-        <div class="big">${fmt(st)}</div>
-        <div class="cap">${t('spentToday')}</div>
-      </div>
-      ${spark(C.lastDays(S, today, 7))}
-    </div>
+    <div class="cap">${t('spentToday')}</div>
+    <div class="big${db && over ? ' over' : ''}">${fmt(st)}</div>
     ${db
       ? bar(st / db * 100, over) + `<div class="barcap">
           <span>${over ? t('overToday') : t('leftToday')}: <b class="num">${fmt(Math.abs(left))}</b></span>
@@ -569,6 +581,7 @@ function viewOver() {
       <span>${t('mtd')}</span><span class="num">${fmt(mtd)}${mb ? ` / ${grp(mb)}` : ''}</span></div>
   </section>`;
 
+  h += bars7(C.lastDays(S, today, 7));
   h += upcomingBlock();
 
   h += `<div class="kpis">
