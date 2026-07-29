@@ -73,6 +73,11 @@ const STR = {
   'gave': ['ধার দিয়েছি', 'I lent'], 'took': ['ধার নিয়েছি', 'I borrowed'],
   'settle': ['শোধ হয়েছে', 'Settled'],
   'repay': ['কিছু শোধ', 'Part paid'],
+  'savedAmt': ['জমেছে', 'Saved so far'],
+  'editRow': ['বদলান', 'Edit'],
+  'oneTime': ['একবার', 'One time'],
+  'startHint': ['বেতন যেদিন পান, মাস সেদিন থেকে শুরু ধরুন। মাসের শেষ সপ্তাহে বেতন পেলে ২৫ দিন — তাহলে ২৫ জুলাই থেকে ২৪ অগাস্ট পর্যন্ত "জুলাই মাস", আর জুলাইয়ের বেতন জুলাইয়েই গোনা হবে।',
+    'Set this to the day you are paid, and the month starts there. Paid in the last week? Try 25 — then "July" runs 25 Jul to 24 Aug, and July\'s salary counts in July.'],
   'repayTitle': ['শোধের হিসাব', 'Record a repayment'],
   'gotBack': ['ফেরত পেলাম', 'Received back'],
   'paidBack': ['ফেরত দিলাম', 'Paid back'],
@@ -580,6 +585,7 @@ function viewAcct() {
         ${due ? `<span class="pill due">${due}</span>` : `<span class="pill ok">${LANG ? 'up to date' : 'হালনাগাদ'}</span>`}</span></div>
       <div class="amt num">${fmt(d.inst)}
         ${due ? `<button class="btn sm mg" data-dpspay="${d.id}">${t('markPaid')}</button>` : ''}
+        <button class="edit" data-edit="dps:${d.id}" aria-label="${t('editRow')}">✎</button>
         <button class="del" data-deldps="${d.id}" aria-label="${t('del')}">×</button></div></div>`;
   }).join('') : `<div class="empty">${LANG ? 'No DPS added.' : 'কোনো ডিপিএস নেই।'}</div>`;
   h += `</div><div class="grid2" style="margin-top:12px">
@@ -601,6 +607,7 @@ function viewAcct() {
         ${t('interestThisMonth')} ${fmt(C.loanInterest(l))}</span></div>
       <div class="amt num">${fmt(l.emi)}
         <button class="btn sm mg" data-loanpay="${l.id}">${t('markPaid')}</button>
+        <button class="edit" data-edit="loan:${l.id}" aria-label="${t('editRow')}">✎</button>
         <button class="del" data-delloan="${l.id}" aria-label="${t('del')}">×</button></div></div>`;
   }).join('') : `<div class="empty">${LANG ? 'No loans. Good.' : 'কোনো ঋণ নেই। ভালো।'}</div>`;
   h += `</div><div class="grid2" style="margin-top:12px">
@@ -626,6 +633,7 @@ function viewAcct() {
       <div class="amt num ${l.dir === 'gave' ? 'in' : 'out'}">${fmt(paid ? left : l.amount)}
         ${open ? `<button class="btn sm ghost" data-lendrepay="${l.id}">${t('repay')}</button>
         <button class="btn sm ghost" data-settle="${l.id}">${t('settle')}</button>` : ''}
+        <button class="edit" data-edit="lend:${l.id}" aria-label="${t('editRow')}">✎</button>
         <button class="del" data-dellend="${l.id}" aria-label="${t('del')}">×</button></div></div>`;
   }).join('')
     : `<div class="empty">${LANG ? 'Nothing outstanding.' : 'কিছু বাকি নেই।'}</div>`;
@@ -646,7 +654,9 @@ function viewAcct() {
   h += `<section class="sec"><h3>${t('assets')}</h3><div class="ledger">`;
   h += S.assets.length ? S.assets.map(a => `<div class="row"><div class="tick"></div>
       <div class="lab"><b>${esc(a.name)}</b></div>
-      <div class="amt num">${fmt(a.value)}<button class="del" data-delasset="${a.id}" aria-label="${t('del')}">×</button></div></div>`).join('')
+      <div class="amt num">${fmt(a.value)}
+        <button class="edit" data-edit="asset:${a.id}" aria-label="${t('editRow')}">✎</button>
+        <button class="del" data-delasset="${a.id}" aria-label="${t('del')}">×</button></div></div>`).join('')
     : `<div class="empty">${LANG ? 'None added.' : 'কিছু যোগ করা হয়নি।'}</div>`;
   h += `</div><div class="grid2" style="margin-top:12px">
       <div><label class="fl" for="asName">${t('name')}</label><input class="inp w" id="asName" name="asName" placeholder="FDR / সঞ্চয়পত্র"></div>
@@ -672,6 +682,7 @@ function viewPlan() {
         ${r.repeat === 'monthly' ? `· ${t('remMonthly')}` : ''}</span></div>
       <div class="amt num">${fmt(r.amount)}
         ${settled ? '' : `<button class="btn sm ghost" data-remdone="${r.id}">${t('remDone')}</button>`}
+        <button class="edit" data-edit="rem:${r.id}" aria-label="${t('editRow')}">✎</button>
         <button class="del" data-delrem="${r.id}" aria-label="${t('del')}">×</button></div></div>`;
   }).join('') : `<div class="empty">${LANG ? 'No reminders yet.' : 'কিছু মনে রাখার নেই।'}</div>`;
   h += `</div><div class="grid2" style="margin-top:12px">
@@ -707,6 +718,7 @@ function viewPlan() {
       <div class="amt num"><input class="num" id="gs-${g.id}" name="gs-${g.id}" data-goalsaved="${g.id}" type="number"
         inputmode="numeric" value="${g.saved || 0}"
         style="width:110px;text-align:right;padding:7px 9px;border:1px solid var(--rule);border-radius:8px;background:var(--card)">
+        <button class="edit" data-edit="goal:${g.id}" aria-label="${t('editRow')}">✎</button>
         <button class="del" data-delgoal="${g.id}" aria-label="${t('del')}">×</button></div></div>`;
   }).join('') : `<div class="empty">${LANG ? 'No goals yet.' : 'কোনো লক্ষ্য নেই।'}</div>`;
   h += `</div><div class="grid2" style="margin-top:12px">
@@ -720,7 +732,9 @@ function viewPlan() {
   h += S.recur.length ? S.recur.map(r => `<div class="row"><div class="tick">${r.autoAdded === p ? '✓' : ''}</div>
       <div class="lab"><b>${esc(r.name)}</b><span>${esc(L(C.catOf(S, r.cat) || { bn: '', en: '' }))}
         · ${LANG ? 'day' : 'তারিখ'} ${bn(r.day)} · ${esc(L(C.acctOf(S, r.acct) || { bn: '', en: '' }))}</span></div>
-      <div class="amt num">${fmt(r.amount)}<button class="del" data-delrec="${r.id}" aria-label="${t('del')}">×</button></div></div>`).join('')
+      <div class="amt num">${fmt(r.amount)}
+        <button class="edit" data-edit="rec:${r.id}" aria-label="${t('editRow')}">✎</button>
+        <button class="del" data-delrec="${r.id}" aria-label="${t('del')}">×</button></div></div>`).join('')
     : `<div class="empty">${LANG ? 'None yet. Add rent, internet, subscriptions.' : 'কিছু নেই। বাড়ি ভাড়া, ইন্টারনেট, সাবস্ক্রিপশন যোগ করুন।'}</div>`;
   h += `</div><div class="grid2" style="margin-top:12px">
       <div><label class="fl" for="rName">${t('name')}</label><input class="inp w" id="rName" name="rName"></div>
@@ -730,6 +744,19 @@ function viewPlan() {
       <div><label class="fl" for="rAcct">${t('account')}</label>${acctSelect('rAcct', S.accts[0] && S.accts[0].id)}</div>
     </div><button class="btn ghost sm" id="rAdd" style="margin-top:10px">${t('add')}</button></section>`;
   return h;
+}
+
+/* The start-day setting is easy to mistrust — "does 25 mean July or August?"
+   Spelling the window out removes the doubt: pick 25 and you can see for
+   yourself that July now begins on the day the salary lands. */
+function cycleLabel() {
+  const sd = Math.min(28, Math.max(1, Number(S.settings.monthStartDay) || 1));
+  const [py, pm] = C.periodOf(S, todayISO()).split('-').map(Number);
+  const iso = d => d.toISOString().slice(0, 10);
+  const from = new Date(Date.UTC(py, pm - 1, sd));
+  const to = new Date(Date.UTC(py, pm, sd));
+  to.setUTCDate(to.getUTCDate() - 1);
+  return `${dateMid(iso(from))} – ${dateMid(iso(to))}`;
 }
 
 function viewSet() {
@@ -785,7 +812,8 @@ function viewSet() {
   h += `<section class="sec"><h3>${LANG ? 'Month and budget' : 'মাস ও বাজেট'}</h3>
     <label class="fl" for="stStart">${LANG ? 'Month starts on day' : 'মাস শুরু হয় কত তারিখে'}</label>
     <input class="inp num" id="stStart" name="stStart" type="number" min="1" max="28" value="${S.settings.monthStartDay || 1}" style="width:120px">
-    <div class="note">${LANG ? 'Set this to your salary date if you budget by pay cycle.' : 'বেতনের তারিখ অনুযায়ী বাজেট করলে ওই তারিখ দিন।'}</div>
+    <div class="note">${t('startHint')}</div>
+    <div class="note"><b>${LANG ? 'Right now this month runs' : 'এখন আপনার মাস চলছে'}: ${cycleLabel()}</b></div>
     <label class="fl" for="stDaily">${t('dailyBudget')}</label>
     <input class="inp num" id="stDaily" name="stDaily" type="number" inputmode="numeric" value="${S.settings.dailyBudget || ''}"
       placeholder="${LANG ? 'auto from budget' : 'বাজেট থেকে হিসাব হবে'}" style="width:180px">
@@ -810,6 +838,123 @@ function render() {
 }
 
 /* ---------------- the sheet: add, edit, pay ---------------- */
+/* ---------------- editing a row ----------------
+
+   Every ledger could add and delete but never correct: one wrong digit in a
+   loan balance meant deleting the row and typing all of it again, which on a
+   DPS also threw away the record of which instalments had been paid.
+
+   Each kind names its fields once here. The sheet, the prefill, the save and
+   the validation all read from that one list, so a row cannot end up with an
+   edit screen that disagrees with the form that created it, and a new kind
+   needs no new sheet code. */
+const FORMS = {
+  dps: {
+    title: 'dps', list: () => S.dps,
+    fields: [
+      { k: 'bank', lab: 'bank', type: 'text', req: true },
+      { k: 'inst', lab: 'instalment', type: 'num' },
+      { k: 'rate', lab: 'rate', type: 'num' },
+      { k: 'tenure', lab: 'tenure', type: 'num' },
+      { k: 'start', lab: 'start', type: 'month' },
+      { k: 'dueDay', lab: 'dueDay', type: 'num' },
+    ],
+  },
+  loan: {
+    title: 'loans', list: () => S.loans,
+    fields: [
+      { k: 'lender', lab: 'lender', type: 'text', req: true },
+      { k: 'out', lab: 'outstanding', type: 'num' },
+      { k: 'emi', lab: 'emi', type: 'num' },
+      { k: 'rate', lab: 'rate', type: 'num' },
+      { k: 'dueDay', lab: 'dueDay', type: 'num' },
+    ],
+  },
+  lend: {
+    title: 'lending', list: () => S.lends,
+    fields: [
+      { k: 'person', lab: 'person', type: 'text', req: true },
+      { k: 'amount', lab: 'amount', type: 'num' },
+      { k: 'date', lab: 'date', type: 'date' },
+      { k: 'note', lab: 'note', type: 'text' },
+      { k: 'dir', lab: 'lending', type: 'dir' },
+    ],
+  },
+  asset: {
+    title: 'assets', list: () => S.assets,
+    fields: [
+      { k: 'name', lab: 'name', type: 'text', req: true },
+      { k: 'value', lab: 'amount', type: 'num' },
+    ],
+  },
+  rem: {
+    title: 'reminders', list: () => S.reminders,
+    fields: [
+      { k: 'title', lab: 'remTitle', type: 'text', req: true },
+      { k: 'amount', lab: 'amount', type: 'num' },
+      { k: 'due', lab: 'deadline', type: 'date' },
+      { k: 'repeat', lab: 'remMonthly', type: 'rep' },
+    ],
+  },
+  goal: {
+    title: 'goals', list: () => S.goals,
+    fields: [
+      { k: 'name', lab: 'name', type: 'text', req: true },
+      { k: 'target', lab: 'target', type: 'num' },
+      { k: 'saved', lab: 'savedAmt', type: 'num' },
+      { k: 'deadline', lab: 'deadline', type: 'date' },
+    ],
+  },
+  rec: {
+    title: 'recurring', list: () => S.recur,
+    fields: [
+      { k: 'name', lab: 'name', type: 'text', req: true },
+      { k: 'amount', lab: 'amount', type: 'num' },
+      { k: 'cat', lab: 'category', type: 'cat' },
+      { k: 'day', lab: 'dueDay', type: 'num' },
+      { k: 'acct', lab: 'account', type: 'acct' },
+    ],
+  },
+};
+
+const findRec = (kind, id) => (FORMS[kind] ? FORMS[kind].list().find(x => x.id === id) : null);
+
+function editField(f, rec) {
+  const id = 'ed-' + f.k, v = rec[f.k];
+  const lab = `<label class="fl" for="${id}">${t(f.lab)}</label>`;
+  const sel = (opts, cur) => `<select class="inp w" id="${id}" name="${id}">` +
+    opts.map(o => `<option value="${o.v}"${String(cur) === String(o.v) ? ' selected' : ''}>${esc(o.t)}</option>`).join('') + '</select>';
+  let input;
+  if (f.type === 'num') input = `<input class="inp w num" id="${id}" name="${id}" type="number" inputmode="decimal" value="${v ?? ''}">`;
+  else if (f.type === 'date') input = `<input class="inp w" id="${id}" name="${id}" type="date" value="${v || ''}">`;
+  else if (f.type === 'month') input = `<input class="inp w" id="${id}" name="${id}" type="month" value="${v || ''}">`;
+  else if (f.type === 'cat') input = sel(S.cats.map(c => ({ v: c.id, t: L(c) })), v);
+  else if (f.type === 'acct') input = sel(S.accts.map(a => ({ v: a.id, t: L(a) })), v);
+  else if (f.type === 'dir') input = sel([{ v: 'gave', t: t('gave') }, { v: 'took', t: t('took') }], v);
+  else if (f.type === 'rep') input = sel([{ v: '', t: t('oneTime') }, { v: 'monthly', t: t('remMonthly') }], v || '');
+  else input = `<input class="inp w" id="${id}" name="${id}" value="${esc(v || '')}">`;
+  return `<div>${lab}${input}</div>`;
+}
+
+function doEdit() {
+  const f = FORMS[SH.kind], rec = findRec(SH.kind, SH.id);
+  if (!f || !rec) return closeSheet();
+  /* Read every field before writing any, so a rejected form leaves the record
+     exactly as it was rather than half changed. */
+  const next = {};
+  for (const fd of f.fields) {
+    const el = $('#ed-' + fd.k);
+    if (!el) continue;
+    const raw = el.value;
+    if (fd.req && !String(raw).trim()) return toast(t('enterAmount'));
+    next[fd.k] = fd.type === 'num' ? (Number(raw) || 0) : raw;
+  }
+  Object.assign(rec, next);
+  closeSheet();
+  toast(t('saved!'));
+  change();
+}
+
 let SH = null;
 
 function openSheet(mode, payload) {
@@ -872,8 +1017,16 @@ function openSheet(mode, payload) {
       <button class="btn wide mg" id="shRepay" style="margin-top:16px">${t('add')}</button>`;
   }
 
+  if (mode === 'edit') {
+    const f = FORMS[SH.kind], rec = findRec(SH.kind, SH.id);
+    if (!f || !rec) { closeSheet(); return; }
+    body = `<div class="grid2">${f.fields.map(fd => editField(fd, rec)).join('')}</div>
+      <button class="btn wide" id="shEdit" style="margin-top:16px">${t('save')}</button>`;
+  }
+
   const title = mode === 'pay' ? t('payTitle')
     : mode === 'repay' ? t('repayTitle')
+    : mode === 'edit' ? `${t('editRow')} — ${t(FORMS[SH.kind].title)}`
     : (SH.txn && SH.txn.id ? t('editEntry') : t('addExpense'));
   $('#sheet').innerHTML = `<div class="box">
     <div class="grab" aria-hidden="true"></div>
@@ -1015,6 +1168,8 @@ document.addEventListener('click', async e => {
   if (b.id === 'shSave') return saveSheetTxn();
   if (b.id === 'shPay') return doPay();
   if (b.id === 'shRepay') return doRepay();
+  if (b.id === 'shEdit') return doEdit();
+  if (d.edit) { const [kind, id] = d.edit.split(':'); openSheet('edit', { kind, id }); return; }
 
   if (d.tab) { TAB = d.tab; render(); window.scrollTo(0, 0); return; }
   if (d.day) { openDay = openDay === d.day ? null : d.day; return render(); }
@@ -1185,7 +1340,7 @@ document.addEventListener('keydown', e => {
   if (e.key === 'Escape' && SH) return closeSheet();
   if (e.key === 'Enter' && e.target.id === 'shAmt') {
     e.preventDefault();
-    const s = $('#shSave') || $('#shPay') || $('#shRepay'); if (s) s.click();
+    const s = $('#shSave') || $('#shPay') || $('#shRepay') || $('#shEdit'); if (s) s.click();
   }
   if (e.key === 'Enter' && (e.target.id === 'gPass' || e.target.id === 'gPass2')) $('#gGo').click();
 });
