@@ -264,6 +264,7 @@ async function flushSave() {
     await saveState(KEY, S);
     $('#banner').classList.add('hide');
     paintSync();
+    queueSync();          // the write is on this device; get it to the others
     return true;
   } catch (e) {
     /* A save that fails silently is the worst thing this app can do, so this
@@ -344,6 +345,43 @@ async function doSync(force) {
     setMeta({ syncState: 'err', syncErr: String(e.message || e) });
   }
   paintSync();
+}
+
+/* ---------------- keeping two devices on one book ----------------
+
+   Saving is local. Sync used to run only on open, on the সিঙ্ক button, and
+   when the network came back — so an entry typed on the laptop sat on the
+   laptop until someone remembered to press a button, and the phone showed an
+   older book. That is not a sync anyone can trust with a household ledger.
+
+   Three triggers cover ordinary use: a pause after typing, leaving the page,
+   and coming back to it.
+
+   Pulling redraws the screen, which would throw away an amount half typed —
+   so a pull waits until nothing is focused and no sheet is open. Pushing what
+   this device already wrote is safe at any moment and is never held back. */
+let syncTimer = null, syncing = false;
+
+const midEdit = () =>
+  !!SH || !!(document.activeElement && /^(INPUT|SELECT|TEXTAREA)$/.test(document.activeElement.tagName));
+
+/* Debounced: ten entries typed in a row become one upload, not ten. */
+function queueSync() {
+  if (!syncCfg()) return;
+  clearTimeout(syncTimer);
+  syncTimer = setTimeout(() => autoSync(), 4000);
+}
+
+async function autoSync(wantPull) {
+  if (syncing || !KEY || !syncCfg()) return;
+  /* A conflict is waiting on a decision only the user can make. Retrying it on
+     a timer would just reprint the banner over and over. */
+  if (meta().syncState === 'conflict') return;
+  if (!meta().dirty && !wantPull) return;
+  if (wantPull && midEdit()) return;
+  syncing = true;
+  try { await doSync(false); } catch { /* doSync paints its own failure */ }
+  syncing = false;
 }
 
 function paintSync() {
@@ -726,6 +764,9 @@ function viewSet() {
       <button class="btn sm" id="sySave">${t('save')}</button>
       <button class="btn sm ghost" id="syNow">${t('syncNow')}</button>
     </div>
+    <div class="note">${LANG
+      ? 'Sync runs on its own — a few seconds after you stop typing, when you leave the app, and when you come back. The button is only for when you want it this second.'
+      : 'সিঙ্ক নিজে নিজেই হয় — লেখা শেষ করার কয়েক সেকেন্ড পর, অ্যাপ থেকে বেরোলে, আর ফিরে এলে। বোতামটা শুধু এখনই দরকার হলে।'}</div>
     <div class="note">${LANG ? 'Last synced' : 'শেষ সিঙ্ক'}: ${m.syncedAt ? new Date(m.syncedAt).toLocaleString() : t('never')}</div>
   </section>`;
 
@@ -1202,6 +1243,19 @@ tick();
 paintGate();
 
 window.addEventListener('online', () => { if (KEY) doSync(false); });
+
+/* Closing the laptop lid, switching apps on the phone, locking the screen —
+   all of these fire this, and all of them are moments where unsent work would
+   otherwise be stranded. Coming back the other way is when the other device's
+   changes are worth fetching. */
+document.addEventListener('visibilitychange', () => {
+  if (!KEY) return;
+  if (document.hidden) { clearTimeout(syncTimer); autoSync(); }
+  else autoSync(true);
+});
+
+/* A device left open all evening would never hear about the other one. */
+setInterval(() => { if (KEY && !document.hidden) autoSync(true); }, 180000);
 if ('serviceWorker' in navigator) navigator.serviceWorker.register('./sw.js').catch(() => {});
 
 /* Exposed for the verification harness only — no app code reads this. */

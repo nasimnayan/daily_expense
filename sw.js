@@ -7,7 +7,7 @@
    connection you always get the current code, and the cache is only a
    fallback, so offline still works exactly as before. */
 
-const BUILD = '2026-07-28.3';
+const BUILD = '2026-07-29.1';
 const CACHE = `khata-${BUILD}`;
 
 const SHELL = [
