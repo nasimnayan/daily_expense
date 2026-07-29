@@ -6,12 +6,22 @@
    nothing about your ledger leaks to a font CDN. */
 
 :root{
-  --ink:#14213A; --ink-2:#3B4A6B; --ink-3:#7A85A0;
-  --paper:#EFF1EC; --card:#F8F9F6; --rule:#C9CEC4; --rule-2:#DDE1D9;
-  --marigold:#E09B12; --marigold-d:#8A5C05;
-  --teal:#0F6E56; --teal-l:#E1F0EA;
-  --brick:#9E2B22; --brick-l:#F6E8E6;
-  --r:10px; --tap:44px;
+  /* Khata Ledger System. Forest green carries growth and financial health and
+     is the only saturated colour with any weight on the page; amber is caution
+     and rose is outflow, and neither is used for anything else. Cards are white
+     on a soft grey so they lift without a heavy shadow. */
+  --ink:#191C1E; --ink-2:#404944; --ink-3:#707974;
+  --paper:#F7F9FB; --card:#FFFFFF; --rule:#E2E8F0; --rule-2:#ECEEF0;
+  --primary:#064E3B; --primary-d:#003527; --on-primary:#FFFFFF;
+  --primary-soft:#E6F0EB;
+  --marigold:#B45309; --marigold-d:#92400E;      /* caution only */
+  --teal:#047857; --teal-l:#E6F4EF;              /* inflow */
+  --brick:#BA1A1A; --brick-l:#FFDAD6;            /* outflow */
+  --lift-1:0 1px 2px rgba(15,23,42,.04), 0 2px 4px rgba(15,23,42,.05);
+  --lift-2:0 4px 8px rgba(15,23,42,.06), 0 8px 16px rgba(15,23,42,.08);
+  /* Soft Professional: precise rather than bubbly. 4px on controls, 8px on
+     cards, 12px on the sheet. */
+  --r:4px; --r-card:8px; --r-sheet:12px; --tap:44px;
   /* Bottom furniture measured once, then everything clears it by arithmetic.
      These used to be three unrelated magic numbers — #app padding 120px, the
      add button at 64px, the toast at 96px — so changing the nav meant hunting
@@ -20,17 +30,29 @@
   --safeb:env(safe-area-inset-bottom,0px);
   --navspace:calc(var(--navh) + var(--safeb));
   --fabspace:calc(var(--navspace) + 60px);   /* nav, plus the add button above it */
-  --f-body:'Hind Siliguri','Noto Sans Bengali','Nirmala UI',system-ui,-apple-system,'Segoe UI',Roboto,sans-serif;
-  --f-disp:'Noto Serif Bengali','Hind Siliguri','Nirmala UI',Georgia,serif;
-  --f-num:ui-monospace,'SF Mono','Cascadia Mono','Roboto Mono',Consolas,monospace;
+  /* Dual engine. Inter does the functional lifting in Latin, Hind Siliguri
+     carries every Bangla glyph — it leads the body stack because the interface
+     is Bangla-first. Hanken Grotesk is editorial, headings only. JetBrains Mono
+     is reserved for money: tabular figures mean decimal points line up down a
+     column, which is the whole reason a ledger is readable at a glance.
+     All four are self-hosted (see fonts.css) so nothing is fetched at runtime. */
+  --f-body:'Hind Siliguri','Inter',system-ui,-apple-system,'Segoe UI',Roboto,sans-serif;
+  --f-disp:'Hanken Grotesk','Hind Siliguri','Inter',system-ui,sans-serif;
+  --f-num:'JetBrains Mono',ui-monospace,'SF Mono','Roboto Mono',Consolas,monospace;
 }
 @media (prefers-color-scheme:dark){
   :root{
-    --ink:#E8EAE4; --ink-2:#AFB6C4; --ink-3:#7D8598;
-    --paper:#12161C; --card:#1A1F27; --rule:#2E3542; --rule-2:#242A34;
-    --marigold:#EDAE33; --marigold-d:#F6C86A;
-    --teal:#4FBF9C; --teal-l:#12332A;
-    --brick:#E8756A; --brick-l:#331815;
+    --ink:#E1E3E5; --ink-2:#BFC9C3; --ink-3:#8B948F;
+    --paper:#111416; --card:#1A1E20; --rule:#2C3235; --rule-2:#23282A;
+    /* Inverted: #064E3B is unreadable as a surface here, so the light mint
+       becomes the accent and dark ink sits on it. */
+    --primary:#95D3BA; --primary-d:#B0F0D6; --on-primary:#002117;
+    --primary-soft:#12332A;
+    --marigold:#F0B357; --marigold-d:#F6C86A;
+    --teal:#5FD1AC; --teal-l:#10322A;
+    --brick:#FFB4A9; --brick-l:#3A1512;
+    --lift-1:0 1px 2px rgba(0,0,0,.3);
+    --lift-2:0 6px 16px rgba(0,0,0,.42);
   }
 }
 
@@ -408,6 +430,90 @@ header.top .clock{font-variant-numeric:tabular-nums}
    category name or an unbroken sync error push the page sideways. */
 .row .lab,.up-row .w,.cbar .t,.kpi{min-width:0}
 .note code{overflow-wrap:anywhere}
+
+/* ---------- Khata Ledger System: tonal layering ----------
+
+   The old look was a paper ledger: everything flat on one tint, separated by
+   ruled lines. This is the mockup's model instead — white cards at level 1 on a
+   soft grey base, hierarchy from tonal layering and one ambient shadow rather
+   than from rules. The rules stay inside a card to separate its rows, which is
+   what they are actually good at. */
+
+.hero,.kpis,.up,.daycard,.sec,.bars{
+  background:var(--card);border:1px solid var(--rule);border-radius:var(--r-card);
+  box-shadow:var(--lift-1);padding:16px;margin:12px 0;
+}
+.hero{border-bottom:1px solid var(--rule)}          /* was a heavy 1.5px ink rule */
+.sec:last-child{border-bottom:1px solid var(--rule)}
+.kpis{gap:0;overflow:hidden;padding:0;background:var(--card)}
+.kpi{background:transparent;border-right:1px solid var(--rule);border-bottom:1px solid var(--rule)}
+.kpi:nth-child(2n){border-right:none}
+.kpi:nth-last-child(-n+2){border-bottom:none}
+.up{border-left:3px solid var(--marigold);background:var(--card)}
+.daycard{padding:4px 14px}
+.ledger{margin:0}
+.row{border-bottom:1px solid var(--rule-2)}
+.row:last-child{border-bottom:none}
+.row.head{border-bottom:1px solid var(--rule);color:var(--ink-3)}
+.monthsep{border-bottom:none;padding:18px 2px 4px}
+
+/* Forest green is the only saturated surface on the page, so it marks exactly
+   two things: the primary action, and where you are. */
+.btn{background:var(--primary);border-color:var(--primary);color:var(--on-primary)}
+.btn.ghost{background:transparent;color:var(--ink);border-color:var(--rule)}
+.btn.danger{color:var(--brick);border-color:var(--brick);background:transparent}
+.btn.mg{background:var(--primary);border-color:var(--primary);color:var(--on-primary)}
+.chip.on,.togg button.on{background:var(--primary);border-color:var(--primary);color:var(--on-primary)}
+.chip.mg.on{background:var(--primary);border-color:var(--primary);color:var(--on-primary)}
+#fab{background:var(--primary);color:var(--on-primary);box-shadow:var(--lift-2)}
+.bar i,.cbar .track i{background:var(--primary)}
+.bar i.over,.cbar .track i.over{background:var(--brick)}
+.spark polyline{stroke:var(--primary)}
+.spark .today{fill:var(--primary)}
+.stitch i{background:var(--primary)}
+:focus-visible{outline:2px solid var(--primary)}
+#gate .intro{border-left-color:var(--primary);background:var(--primary-soft)}
+.okbox{background:var(--teal-l);border-left-color:var(--teal)}
+
+/* Bottom navigation: white with a hairline top border, and the active tab a
+   filled green pill rather than a coloured top edge. */
+nav{background:var(--card);border-top:1px solid var(--rule);box-shadow:var(--lift-1)}
+nav button{border-top:none;border-radius:var(--r-card);margin:6px 4px;padding:6px 2px;
+  color:var(--ink-3);gap:2px}
+nav button.on{background:var(--primary);color:var(--on-primary);border-top-color:transparent}
+nav button.on .ic{transform:none}
+@media(min-width:700px){
+  nav{box-shadow:none;background:transparent;border-bottom:1px solid var(--rule)}
+  nav button.on{background:var(--primary-soft);color:var(--primary-d)}
+}
+
+/* Inputs: 1px border that answers to focus in the primary colour. */
+.field input,.field select,.inp{border-radius:var(--r);background:var(--card)}
+.inp:focus,.field input:focus,.field select:focus{border-color:var(--primary);outline:none;
+  box-shadow:0 0 0 3px var(--primary-soft)}
+#sheet .box{border-radius:var(--r-sheet) var(--r-sheet) 0 0;border-top:none;box-shadow:var(--lift-2)}
+.chip{border-radius:999px}
+.pill{border-radius:999px}
+
+/* Even as a circle the add button sat on the right-hand amount column and hid
+   whichever figure it happened to cross. Since the column is right-aligned there
+   is nowhere on that edge for it to go, so it leaves while you are reading and
+   comes back the moment you stop. */
+#fab{transition:transform .2s cubic-bezier(.22,1,.36,1),opacity .16s ease-out}
+#fab.away{transform:translateY(96px);opacity:0;pointer-events:none}
+
+/* Amber now means caution, and these ticks only mean the spend was planned —
+   in the new palette they were reading as a warning on every ordinary row. */
+.row .tick{color:var(--ink-3)}
+/* The app bar closes with a hairline like every other edge, not the old 1.5px
+   ink rule that was carrying the weight before cards existed. */
+header.top{border-bottom:1px solid var(--rule)}
+.hero,.row.head,.monthsep{border-bottom-color:var(--rule)}
+
+/* Bangla needs more leading than Latin: the matra above and the sub-conjuncts
+   below both need room, or lines start to touch at this size. */
+h1,h2,h3,h4,.dayhead b,#gate h2{font-family:var(--f-disp);line-height:1.4}
+.row .lab b,.row .lab span{line-height:1.55}
 
 @media (prefers-reduced-motion:reduce){
   *,*::before,*::after{animation-duration:.01ms !important;animation-iteration-count:1 !important;

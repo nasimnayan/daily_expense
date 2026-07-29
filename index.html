@@ -23,7 +23,12 @@
      SVG-only manifest got a generic tile instead of the khata mark. Rasterised
      from icon.svg, so the artwork is identical. -->
 <link rel="apple-touch-icon" sizes="180x180" href="./icon-180.png">
+<link rel="stylesheet" href="./fonts.css">
 <link rel="stylesheet" href="./app.css">
+<!-- The two faces above the fold. Bangla first: it is what the interface is
+     written in, so it is what a blank screen is waiting on. -->
+<link rel="preload" href="./fonts/hind-400-bengali.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="preload" href="./fonts/hanken-700-latin.woff2" as="font" type="font/woff2" crossorigin>
 </head>
 <body>
 

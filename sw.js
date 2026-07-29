@@ -7,14 +7,22 @@
    connection you always get the current code, and the cache is only a
    fallback, so offline still works exactly as before. */
 
-const BUILD = '2026-07-29.9';
+const BUILD = '2026-07-29.10';
 const CACHE = `khata-${BUILD}`;
 
 const SHELL = [
-  './', './index.html', './app.css',
+  './', './index.html', './app.css', './fonts.css',
   './js/app.js', './js/vault.js', './js/calc.js',
   './manifest.webmanifest', './icon.svg',
   './icon-192.png', './icon-512.png', './icon-180.png',
+  /* Precached, or the first offline launch would fall back to system fonts and
+     the whole app would reflow. Fetched once, then never again — the filenames
+     carry no hash, but the font files themselves never change. */
+  './fonts/hind-400-bengali.woff2', './fonts/hind-600-bengali.woff2',
+  './fonts/hind-400-latin.woff2', './fonts/hind-600-latin.woff2',
+  './fonts/inter-400-latin.woff2', './fonts/inter-500-latin.woff2', './fonts/inter-600-latin.woff2',
+  './fonts/hanken-600-latin.woff2', './fonts/hanken-700-latin.woff2',
+  './fonts/jbmono-500-latin.woff2',
 ];
 
 /* Files whose freshness matters. Anything else same-origin is cache-first. */

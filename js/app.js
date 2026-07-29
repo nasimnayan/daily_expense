@@ -1547,6 +1547,28 @@ function paintGate() {
 
 const cryptoReady = () => !!(window.isSecureContext && window.crypto && window.crypto.subtle);
 
+/* Hide the add button while the page is being scrolled downwards, and bring it
+   back as soon as scrolling stops or reverses. Read in a rAF and never written
+   in the scroll handler itself, so this cannot make scrolling janky on a
+   mid-range phone. */
+(() => {
+  const fab = $('#fab');
+  let last = 0, idle = null, queued = false;
+  addEventListener('scroll', () => {
+    if (queued) return;
+    queued = true;
+    requestAnimationFrame(() => {
+      queued = false;
+      const y = window.scrollY;
+      if (y > last + 6 && y > 80) fab.classList.add('away');
+      else if (y < last - 6) fab.classList.remove('away');
+      last = y;
+      clearTimeout(idle);
+      idle = setTimeout(() => fab.classList.remove('away'), 420);
+    });
+  }, { passive: true });
+})();
+
 /* Reveal both boxes together: the point is to compare them. */
 $('#gShow').addEventListener('click', () => {
   const b = $('#gShow'), on = b.getAttribute('aria-pressed') !== 'true';
