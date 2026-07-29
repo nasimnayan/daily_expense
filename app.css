@@ -232,6 +232,16 @@ nav button.on{color:var(--ink);border-top-color:var(--marigold)}
   box-shadow:0 6px 20px rgba(0,0,0,.22);min-height:var(--tap);
 }
 #fab:hover{filter:brightness(1.05)}
+/* On a phone the labelled pill was about 230px wide and floated directly over
+   the right-hand amount column, hiding the figure on whichever row it happened
+   to sit across — "মাস শেষে হবে" lost its total mid-scroll. A circle covers a
+   56px corner instead. The label stays in the DOM as the accessible name. */
+@media (max-width:699px){
+  #fab{width:56px;height:56px;padding:0;border-radius:50%;
+    display:grid;place-items:center;line-height:1}
+  #fab .ic{font-size:26px}
+  #fab .lbl{position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%)}
+}
 
 @media(min-width:700px){
   nav{position:static;border-top:none;border-bottom:1.5px solid var(--ink);max-width:620px;

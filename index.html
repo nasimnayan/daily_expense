@@ -78,7 +78,9 @@
     <main id="view"></main>
   </div>
 
-  <button id="fab" aria-haspopup="dialog"><span aria-hidden="true">⊕</span> <span data-t="fab"></span></button>
+  <!-- The label is hidden on phones but stays in the DOM as the accessible name,
+       so the button reads the same to a screen reader at every width. -->
+  <button id="fab" aria-haspopup="dialog"><span class="ic" aria-hidden="true">⊕</span> <span class="lbl" data-t="fab"></span></button>
 </div>
 
 <!-- quick add / edit sheet -->
