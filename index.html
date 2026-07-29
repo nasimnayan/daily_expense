@@ -47,7 +47,13 @@
     <div id="gConfirmWrap" class="hide">
       <label class="fl" for="gPass2">আবার লিখুন</label>
       <input class="inp w" type="password" id="gPass2" name="passphrase-confirm" autocomplete="new-password">
+      <!-- Says so while you type, instead of only after you press the button. -->
+      <div class="matchhint" id="gMatch" aria-live="polite"></div>
     </div>
+
+    <!-- A passphrase you cannot read is a passphrase you cannot check. Without
+         this, two masked fields that differ by one character look identical. -->
+    <button type="button" class="pwshow" id="gShow" aria-pressed="false">পাসফ্রেজ দেখান</button>
 
     <div class="err" id="gErr" role="status" aria-live="polite"></div>
     <button class="btn wide" id="gGo">খুলুন</button>

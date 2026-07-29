@@ -264,6 +264,16 @@ nav button.on{color:var(--ink);border-top-color:var(--marigold)}
   font-size:13.5px;line-height:1.6;color:var(--ink-2);
   background:color-mix(in srgb,var(--marigold) 10%,transparent)}
 #gate .intro b{color:var(--ink)}
+/* Reveal control and live match hint on the passphrase gate. */
+.pwshow{
+  display:inline-flex;align-items:center;min-height:38px;margin-top:10px;
+  font-size:13px;color:var(--ink-2);border-bottom:1px solid var(--rule);
+}
+.pwshow[aria-pressed="true"]{color:var(--ink);border-bottom-color:var(--ink-3)}
+.matchhint{font-size:12.5px;margin-top:6px;min-height:18px}
+.matchhint.ok{color:var(--teal)}
+.matchhint.no{color:var(--brick)}
+
 .stitch{display:flex;gap:5px;margin-top:24px}
 .stitch i{width:16px;height:3px;background:var(--marigold);border-radius:2px}
 .stitch i:nth-child(2){opacity:.6} .stitch i:nth-child(3){opacity:.3}

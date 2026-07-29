@@ -113,6 +113,8 @@ const STR = {
   'keepLocal': ['এই ডিভাইসের রাখুন', 'Keep this device'],
   'keepRemote': ['সার্ভারের রাখুন', 'Keep remote'],
   'wrongPass': ['পাসফ্রেজ মেলেনি', 'Passphrase does not match'],
+  'passNoMatch': ['দুইটা ঘরে একই পাসফ্রেজ লিখুন — এখন দুইটা আলাদা।',
+    'The two boxes hold different passphrases. Type the same one in both.'],
   'setPass': ['একটা পাসফ্রেজ ঠিক করুন', 'Choose a passphrase'],
   'open': ['খুলুন', 'Open'], 'create': ['শুরু করুন', 'Start'],
   'noBudget': ['বাজেট দেওয়া হয়নি', 'No budget set'],
@@ -1523,7 +1525,35 @@ function paintGate() {
   $('#gGo').textContent = first ? t('create') : t('open');
   $('#gConfirmWrap').classList.toggle('hide', !first);
   $('#gIntro').classList.toggle('hide', !first);
+  /* On a first run there is nothing to recall, and leaving this as
+     current-password invited the password manager to fill a saved credential
+     into the box while the confirm box got what was actually typed — two masked
+     fields, one character apart, no way to see it. */
+  $('#gPass').autocomplete = first ? 'new-password' : 'current-password';
 }
+
+/* Reveal both boxes together: the point is to compare them. */
+$('#gShow').addEventListener('click', () => {
+  const b = $('#gShow'), on = b.getAttribute('aria-pressed') !== 'true';
+  b.setAttribute('aria-pressed', String(on));
+  b.textContent = on ? 'পাসফ্রেজ লুকান' : 'পাসফ্রেজ দেখান';
+  $('#gPass').type = $('#gPass2').type = on ? 'text' : 'password';
+});
+
+/* Told while typing, not after pressing the button. Compares the raw values —
+   never trims, because a space is part of the key and silently dropping one
+   would derive a different key from the one that encrypted the data. */
+function paintMatch() {
+  const a = $('#gPass').value, b = $('#gPass2').value;
+  const el = $('#gMatch');
+  if (!a || !b) { el.textContent = ''; el.className = 'matchhint'; return; }
+  const same = a === b;
+  el.className = 'matchhint ' + (same ? 'ok' : 'no');
+  el.textContent = same ? '✓ দুইটা এক' : '✗ দুইটা এক হয়নি'
+    + (a.trim() === b.trim() ? ' — শুরুতে বা শেষে একটা স্পেস আছে' : '');
+}
+$('#gPass').addEventListener('input', paintMatch);
+$('#gPass2').addEventListener('input', paintMatch);
 
 $('#gGo').addEventListener('click', async () => {
   const pass = $('#gPass').value;
@@ -1532,7 +1562,10 @@ $('#gGo').addEventListener('click', async () => {
   err.textContent = LANG ? 'Opening…' : 'খোলা হচ্ছে…';
   try {
     if (!hasVault()) {
-      if (pass !== $('#gPass2').value) { err.textContent = t('wrongPass'); return; }
+      /* Its own message. "পাসফ্রেজ মেলেনি" is what a wrong passphrase says, and
+         reusing it here sent someone hunting for a typo in a passphrase that
+         was right, when the two boxes simply differed. */
+      if (pass !== $('#gPass2').value) { err.textContent = t('passNoMatch'); return; }
       KEY = await createVault(pass);
       S = freshState();
       await saveState(KEY, S);
