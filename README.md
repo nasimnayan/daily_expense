@@ -97,6 +97,10 @@ Baki shob permission `No access` rakho.
 Same URL khulo → **hubohu ekoi passphrase** dao → Settings-e same username, repo, token
 dao → **এখন সিঙ্ক করুন**. Khata khali thakle sheta nijei server theke data neme ashbe.
 
+> Prothom device ta ekbar sync korie nio, tarpor ditiyo device-e jao. Purono version-e
+> lekha `khata.json`-e salt thakto na, ar oi file ditiyo device kokhono khulte parto na.
+> Purono file hole prothom device-er porer sync-e sheta nijei thik hoye jai.
+
 ---
 
 ## Sync kivabe kaj kore
@@ -107,6 +111,11 @@ dao → **এখন সিঙ্ক করুন**. Khata khali thakle sheta nij
 - **Dutai jaigai alada change** thakle app kono kichu overwrite kore na — ekta
   "দুই রকম তথ্য" banner dekhai, tumi bechhe nao kon ta rakhbe.
 - Offline thakle sync skip hoi, net asha matro nijei try kore.
+- `khata.json`-er bhitore ciphertext-er pashe **salt ar PBKDF2 count-o** thake. Chabi ta
+  passphrase **ar** salt — duita mile hoi, ar protita device prothom bar nijer salt random
+  banai. Salt ta file-e na thakle notun device ekoi passphrase diye-o **alada chabi**
+  banato ar file ta khulte parto na — sheta bhul kore "পাসফ্রেজ মেলেনি" hishebe dekhato.
+  Ekhon notun device file-er salt ta niye nei, tai duita device ekta-i chabi pai.
 
 Practical niyom: ek device-e kaj shesh kore sync koro, tarpor onno device-e sync koro.
 

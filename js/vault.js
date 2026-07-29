@@ -42,6 +42,21 @@ export async function seal(key, obj) {
   const ct = await crypto.subtle.encrypt({ name: 'AES-GCM', iv }, key, enc.encode(JSON.stringify(obj)));
   return { iv: b64(iv), ct: b64(ct) };
 }
+
+/* What gets uploaded. seal() on its own yields {iv, ct}, and a passphrase is
+   worthless without the salt it was stretched with — which lives only in the
+   localStorage of the device that wrote the file. So a synced file carrying
+   just {iv, ct} could never be opened anywhere else, however correctly the
+   passphrase was typed: the second device derives a key from its own random
+   salt and reads the failure as a wrong passphrase. The backup file always
+   carried salt and iter (see exportBlob); the synced file did not. One shape
+   for both now. */
+export async function sealForSync(key, obj) {
+  return {
+    khata: 2, salt: localStorage.getItem(K.salt), iter: storedIter(),
+    ...await seal(key, obj),
+  };
+}
 export async function unseal(key, pack) {
   const pt = await crypto.subtle.decrypt({ name: 'AES-GCM', iv: unb64(pack.iv) }, key, unb64(pack.ct));
   return JSON.parse(dec.decode(pt));
@@ -84,6 +99,31 @@ export async function rekey(oldKey, pass, state) {
   localStorage.setItem(K.salt, b64(salt));
   localStorage.setItem(K.iter, String(ITER));
   await saveState(key, state);
+  if (tok) await saveToken(key, tok);
+  return key;
+}
+
+/* Stretch the passphrase with a salt that came from somewhere else — the synced
+   file — and re-seal what is on this device under the result, so both devices
+   derive one key from one passphrase from here on.
+
+   Takes the iteration count from the file rather than the current default: a
+   file written under the old cost would otherwise fail with the right salt and
+   the right passphrase, and land back on "wrong passphrase" with nothing to
+   explain it. Carries the sync token across for the same reason rekey does —
+   it was sealed under the old key, and a token that silently stops decrypting
+   turns sync off without saying so.
+
+   Deliberately writes the blob without going through saveState: the key
+   changed, the ledger did not, so this must not mark the book dirty or move
+   updatedAt. Doing so would make an untouched device look like it had edits to
+   push and turn an ordinary pull into a conflict prompt. */
+export async function adoptSalt(oldKey, pass, saltB64, iter, state) {
+  const tok = oldKey ? await loadToken(oldKey) : '';
+  const key = await deriveKey(pass, unb64(saltB64), iter);
+  localStorage.setItem(K.salt, saltB64);
+  localStorage.setItem(K.iter, String(iter));
+  localStorage.setItem(K.blob, JSON.stringify(await seal(key, state)));
   if (tok) await saveToken(key, tok);
   return key;
 }

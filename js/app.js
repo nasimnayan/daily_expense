@@ -6,7 +6,7 @@
 import {
   createVault, unlockVault, hasVault, rekey, saveState, meta, setMeta,
   saveToken, loadToken, blobSize, wipeLocal, exportBlob, importBlob,
-  seal, unseal, ITER,
+  seal, unseal, sealForSync, adoptSalt, deriveKey, unb64, ITER,
 } from './vault.js';
 import * as C from './calc.js';
 
@@ -77,8 +77,13 @@ const STR = {
   'whatWentWrong': ['গিটহাব যা বলেছে', 'What GitHub said'],
   'errHelp': ['৪০১ = টোকেন ভুল বা মেয়াদ শেষ। ৪০৩ = টোকেনে Contents → Read and write দেওয়া নেই। ৪০৪ = রিপোর নাম মেলেনি, বা টোকেন ওই রিপো দেখতে পাচ্ছে না।',
     '401 = token wrong or expired. 403 = the token lacks Contents: read and write. 404 = repo name does not match, or the token cannot see that repo.'],
-  'passHelp': ['সার্ভারের ফাইলটা অন্য পাসফ্রেজ দিয়ে বন্ধ করা, তাই এই ডিভাইস খুলতে পারছে না। দুই ডিভাইসে হুবহু একই পাসফ্রেজ লাগবে। এই ডিভাইসে কিছু জরুরি না থাকলে: সেটিংস → এই ডিভাইস থেকে সব মুছুন, তারপর অন্য ডিভাইসের পাসফ্রেজ দিয়ে আবার শুরু করুন — তথ্য সার্ভার থেকে নেমে আসবে।',
-    'The file on the server is locked with a different passphrase, so this device cannot open it. Both devices need exactly the same one. If nothing here is unsaved: Settings → Erase from this device, then start again with the other device\'s passphrase and the data will come back down.'],
+  /* This used to say "erase this device and start again with the other
+     device's passphrase", which could not have worked: the file held no salt,
+     so no passphrase would open it and erasing threw away the salt this device
+     did have. Both devices now publish the salt, and the older file repairs
+     itself the next time the device that can read it syncs. */
+  'passHelp': ['সার্ভারের ফাইলটা এই ডিভাইস খুলতে পারছে না। বেশির ভাগ সময় এটা ভুল পাসফ্রেজ নয় — পুরনো ফাইলে সল্ট লেখা থাকত না, তাই নতুন ডিভাইস যা-ই লিখুক, খুলতে পারত না। যে ডিভাইসে খাতা ঠিকঠাক খোলে, সেখানে একবার অ্যাপ খুলে সিঙ্ক হতে দিন — ফাইলটা নিজেই ঠিক হয়ে যাবে। তারপর এখানে আবার সিঙ্ক করুন। এই ডিভাইস থেকে কিছু মোছার দরকার নেই।',
+    'This device cannot open the file on the server. Usually this is not a wrong passphrase: files written by older versions carried no salt, so a new device could never open them, whatever was typed. Open the app on the device that does show the khata and let it sync once — the file repairs itself. Then sync again here. Nothing needs erasing from this device.'],
   'editRow': ['বদলান', 'Edit'],
   'oneTime': ['একবার', 'One time'],
   'startHint': ['বেতন যেদিন পান, মাস সেদিন থেকে শুরু ধরুন। মাসের শেষ সপ্তাহে বেতন পেলে ২৫ দিন — তাহলে ২৫ জুলাই থেকে ২৪ অগাস্ট পর্যন্ত "জুলাই মাস", আর জুলাইয়ের বেতন জুলাইয়েই গোনা হবে।',
@@ -263,6 +268,11 @@ function migrate(st) {
 
 let S = freshState();
 let KEY = null;
+/* Kept for this session only, alongside the key it derived, and never written
+   anywhere. Joining a book another device sealed means stretching the same
+   passphrase with that file's salt, and a background sync cannot stop to ask
+   for it. Cleared by a reload, which is fine: sync only runs after unlock. */
+let PASS = '';
 
 /* ---------------- saving ---------------- */
 let saveTimer = null;
@@ -320,6 +330,34 @@ const isEmptyBook = () =>
   !S.txns.length && !S.dps.length && !S.loans.length && !S.goals.length && !S.lends.length
   && !S.assets.length && !S.recur.length && !S.reminders.length && S.accts.every(a => !Number(a.bal));
 
+/* A file this device cannot open is not proof of a different passphrase. Until
+   the salt was published alongside the ciphertext, every device minted its own
+   at first run, so the same passphrase produced a different key on each one and
+   a freshly reset phone could never open the synced book — which is exactly
+   what "পাসফ্রেজ মেলেনি" used to be reporting.
+
+   So before blaming the passphrase, try the one thing that would explain it:
+   stretch what was typed with the salt the file itself carries. Verified first,
+   adopted only on success — a genuinely different passphrase must leave this
+   device's vault exactly as it was. Returns the remote state, or null when the
+   passphrase really is the problem. */
+async function joinRemote(pack) {
+  if (!pack.salt || !PASS) return null;    // pre-salt file, or unlocked before this ran
+  const iter = Number(pack.iter) || ITER;
+  /* Decoded before the attempt, not inside it. A salt that is not 16 readable
+     bytes means a damaged file, which is a different problem with a different
+     remedy — restore a backup, not retype the passphrase — and folding it into
+     the same "wrong passphrase" answer is the very confusion this function
+     exists to end. Let it travel up to the error banner and be read. */
+  const salt = unb64(pack.salt);
+  if (salt.length !== 16) throw new Error(`khata.json: salt ${salt.length} bytes, expected 16`);
+  try {
+    const rState = await unseal(await deriveKey(PASS, salt, iter), pack);
+    KEY = await adoptSalt(KEY, PASS, pack.salt, iter, S);
+    return rState;
+  } catch { return null; }                 // only a failed decrypt lands here
+}
+
 async function adoptRemote(rState, sha) {
   S = migrate(rState); LANG = S.settings.lang || 0;
   await saveState(KEY, S);
@@ -340,12 +378,12 @@ async function doSync(force) {
     if (remote) {
       let rState;
       try { rState = await unseal(KEY, remote.pack); } catch {
-        /* The file downloaded fine — this device simply cannot open it, which
-           means the two devices hold different passphrases. That is not a
-           token or network fault and the fix is nothing like theirs, so it
-           gets its own state instead of hiding inside a generic failure. */
-        setMeta({ syncState: 'badpass', syncErr: '' });
-        paintSync(); return;
+        /* The file downloaded fine, so this is not a token or network fault and
+           the remedy is nothing like theirs. Before calling it a passphrase
+           mismatch, try the file's own salt — that alone explains a device that
+           was reset and set up again with the right passphrase. */
+        rState = await joinRemote(remote.pack);
+        if (!rState) { setMeta({ syncState: 'badpass', syncErr: '' }); paintSync(); return; }
       }
       if (isEmptyBook()) return void await adoptRemote(rState, remote.sha);   // new device
       const remoteMoved = remote.sha !== m.sha;
@@ -354,7 +392,13 @@ async function doSync(force) {
            otherwise there is genuinely nothing to do — never upload here,
            which is how the old version could overwrite a newer remote. */
         if (remoteMoved) return void await adoptRemote(rState, remote.sha);
-        setMeta({ syncState: 'ok' }); paintSync(); return;
+        /* One exception: a file with no salt in it cannot be opened by any
+           other device. Waiting for the next edit to upgrade it would leave a
+           second device locked out for as long as nobody happened to type
+           anything, so fall through and rewrite it now. The upload is safe —
+           with nothing dirty and the remote unmoved, this device's book and the
+           file are the same book. */
+        if (remote.pack.salt) { setMeta({ syncState: 'ok' }); paintSync(); return; }
       }
       if (remoteMoved && !force) {
         window._remoteState = rState;
@@ -362,7 +406,7 @@ async function doSync(force) {
         render(); return;
       }
     }
-    const sha = await ghPut(cfg, tok, await seal(KEY, S), remote ? remote.sha : null);
+    const sha = await ghPut(cfg, tok, await sealForSync(KEY, S), remote ? remote.sha : null);
     setMeta({ dirty: false, sha, syncedAt: new Date().toISOString(), syncState: 'ok' });
     toast(t('synced'));
   } catch (e) {
@@ -1327,6 +1371,7 @@ document.addEventListener('click', async e => {
     if (np.length < 6) return toast(LANG ? 'At least 6 characters.' : 'অন্তত ৬ অক্ষর দিন।');
     if (prompt(LANG ? 'Repeat' : 'আবার লিখুন') !== np) return toast(t('wrongPass'));
     KEY = await rekey(KEY, np, S);
+    PASS = np;                // the old one would no longer open anything
     toast(t('saved!')); return;
   }
   if (b.id === 'wipeAll') {
@@ -1353,6 +1398,7 @@ document.addEventListener('change', async e => {
       S = migrate(await importBlob(await f.text(), pass));
       LANG = S.settings.lang || 0;
       KEY = await createVault(pass);
+      PASS = pass;
       await flushSave();
       toast(t('saved!')); render();
     } catch { toast(t('wrongPass')); }
@@ -1396,6 +1442,7 @@ $('#gGo').addEventListener('click', async () => {
       LANG = S.settings.lang || 0;
     }
   } catch { err.textContent = t('wrongPass'); return; }
+  PASS = pass;              // so sync can join a book sealed on the other device
   err.textContent = '';
   $('#gate').classList.add('hide');
   $('#shell').classList.remove('hide');
