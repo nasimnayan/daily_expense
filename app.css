@@ -71,6 +71,11 @@ header.top .clock i{font-style:normal;font-size:13px;color:var(--ink-3);margin-l
 .row .tick{font-size:13px;color:var(--marigold);text-align:center;line-height:1}
 .row .lab{min-width:0}
 .row .lab b{font-weight:500;font-size:15px;display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+/* A sync failure has to be readable, not decorative: the raw GitHub reply is
+   the one thing that makes it fixable, so it wraps rather than being clipped. */
+.note.bad{color:var(--brick)}
+.note code{font-family:var(--f-num);font-size:12px;word-break:break-word;display:inline-block;max-width:100%}
+
 .row .lab span{font-size:12.5px;color:var(--ink-3)}
 /* How much of a debt has come back — its own line under the subtitle, so it
    does not run together with the date. */

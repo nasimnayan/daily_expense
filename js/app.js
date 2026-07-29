@@ -74,6 +74,11 @@ const STR = {
   'settle': ['শোধ হয়েছে', 'Settled'],
   'repay': ['কিছু শোধ', 'Part paid'],
   'savedAmt': ['জমেছে', 'Saved so far'],
+  'whatWentWrong': ['গিটহাব যা বলেছে', 'What GitHub said'],
+  'errHelp': ['৪০১ = টোকেন ভুল বা মেয়াদ শেষ। ৪০৩ = টোকেনে Contents → Read and write দেওয়া নেই। ৪০৪ = রিপোর নাম মেলেনি, বা টোকেন ওই রিপো দেখতে পাচ্ছে না।',
+    '401 = token wrong or expired. 403 = the token lacks Contents: read and write. 404 = repo name does not match, or the token cannot see that repo.'],
+  'passHelp': ['সার্ভারের ফাইলটা অন্য পাসফ্রেজ দিয়ে বন্ধ করা, তাই এই ডিভাইস খুলতে পারছে না। দুই ডিভাইসে হুবহু একই পাসফ্রেজ লাগবে। এই ডিভাইসে কিছু জরুরি না থাকলে: সেটিংস → এই ডিভাইস থেকে সব মুছুন, তারপর অন্য ডিভাইসের পাসফ্রেজ দিয়ে আবার শুরু করুন — তথ্য সার্ভার থেকে নেমে আসবে।',
+    'The file on the server is locked with a different passphrase, so this device cannot open it. Both devices need exactly the same one. If nothing here is unsaved: Settings → Erase from this device, then start again with the other device\'s passphrase and the data will come back down.'],
   'editRow': ['বদলান', 'Edit'],
   'oneTime': ['একবার', 'One time'],
   'startHint': ['বেতন যেদিন পান, মাস সেদিন থেকে শুরু ধরুন। মাসের শেষ সপ্তাহে বেতন পেলে ২৫ দিন — তাহলে ২৫ জুলাই থেকে ২৪ অগাস্ট পর্যন্ত "জুলাই মাস", আর জুলাইয়ের বেতন জুলাইয়েই গোনা হবে।',
@@ -288,10 +293,17 @@ const GH = 'https://api.github.com';
 const syncCfg = () => S.settings.sync;
 const ghHeaders = tok => ({ Authorization: 'Bearer ' + tok, Accept: 'application/vnd.github+json', 'X-GitHub-Api-Version': '2022-11-28' });
 
+/* Errors carry the method, the status, the exact path and whatever GitHub
+   said. "সিঙ্ক হয়নি" on its own is unfixable from the sofa — a bad token, a
+   repo name typed wrong and a token without write permission all look
+   identical from there, and each needs a different remedy. */
+const ghFail = async (method, r, cfg) =>
+  new Error(`${method} ${r.status} · ${cfg.owner}/${cfg.repo}/${cfg.path} · ${(await r.text()).replace(/\s+/g, ' ').slice(0, 160)}`);
+
 async function ghGet(cfg, tok) {
   const r = await fetch(`${GH}/repos/${cfg.owner}/${cfg.repo}/contents/${cfg.path}`, { headers: ghHeaders(tok) });
-  if (r.status === 404) return null;
-  if (!r.ok) throw new Error('GitHub ' + r.status);
+  if (r.status === 404) return null;      // no file yet, or the repo is not visible to this token
+  if (!r.ok) throw await ghFail('GET', r, cfg);
   const j = await r.json();
   return { sha: j.sha, pack: JSON.parse(atob(j.content.replace(/\n/g, ''))) };
 }
@@ -301,7 +313,7 @@ async function ghPut(cfg, tok, pack, sha) {
   const r = await fetch(`${GH}/repos/${cfg.owner}/${cfg.repo}/contents/${cfg.path}`, {
     method: 'PUT', headers: { ...ghHeaders(tok), 'Content-Type': 'application/json' }, body: JSON.stringify(body),
   });
-  if (!r.ok) throw new Error('GitHub ' + r.status + ' — ' + (await r.text()).slice(0, 140));
+  if (!r.ok) throw await ghFail('PUT', r, cfg);
   return (await r.json()).content.sha;
 }
 const isEmptyBook = () =>
@@ -327,7 +339,14 @@ async function doSync(force) {
     const m = meta();
     if (remote) {
       let rState;
-      try { rState = await unseal(KEY, remote.pack); } catch { throw new Error(t('wrongPass')); }
+      try { rState = await unseal(KEY, remote.pack); } catch {
+        /* The file downloaded fine — this device simply cannot open it, which
+           means the two devices hold different passphrases. That is not a
+           token or network fault and the fix is nothing like theirs, so it
+           gets its own state instead of hiding inside a generic failure. */
+        setMeta({ syncState: 'badpass', syncErr: '' });
+        paintSync(); return;
+      }
       if (isEmptyBook()) return void await adoptRemote(rState, remote.sha);   // new device
       const remoteMoved = remote.sha !== m.sha;
       if (!m.dirty) {
@@ -398,6 +417,7 @@ function paintSync() {
     busy: ['warn', LANG ? 'Syncing…' : 'সিঙ্ক হচ্ছে…'],
     conflict: ['err', LANG ? 'Conflict' : 'দুই রকম তথ্য'],
     err: ['err', LANG ? 'Sync failed' : 'সিঙ্ক হয়নি'],
+    badpass: ['err', t('wrongPass')],
     offline: ['warn', t('offline')],
     none: ['', LANG ? 'This device only' : 'শুধু এই ডিভাইসে'],
     warn: ['warn', LANG ? 'Not synced yet' : 'সিঙ্ক বাকি'],
@@ -795,6 +815,9 @@ function viewSet() {
       ? 'Sync runs on its own — a few seconds after you stop typing, when you leave the app, and when you come back. The button is only for when you want it this second.'
       : 'সিঙ্ক নিজে নিজেই হয় — লেখা শেষ করার কয়েক সেকেন্ড পর, অ্যাপ থেকে বেরোলে, আর ফিরে এলে। বোতামটা শুধু এখনই দরকার হলে।'}</div>
     <div class="note">${LANG ? 'Last synced' : 'শেষ সিঙ্ক'}: ${m.syncedAt ? new Date(m.syncedAt).toLocaleString() : t('never')}</div>
+    ${m.syncState === 'badpass' ? `<div class="note bad"><b>${t('wrongPass')}</b><br>${t('passHelp')}</div>` : ''}
+    ${m.syncState === 'err' && m.syncErr ? `<div class="note bad"><b>${t('whatWentWrong')}</b><br><code>${esc(m.syncErr)}</code><br>${t('errHelp')}</div>` : ''}
+    <div class="note">${LANG ? 'Writing to' : 'যেখানে লেখা হচ্ছে'}: <code>${esc(cfg.owner || '—')}/${esc(cfg.repo || '—')}/${esc(cfg.path || 'khata.json')}</code></div>
   </section>`;
 
   h += `<section class="sec"><h3>${t('backup')}</h3>
