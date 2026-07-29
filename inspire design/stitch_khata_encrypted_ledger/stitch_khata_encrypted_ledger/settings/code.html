@@ -1,0 +1,278 @@
+<!DOCTYPE html>
+
+<html lang="bn"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Khata Settings</title>
+<!-- Tailwind CSS & Plugins -->
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<!-- Tailwind Theme Config -->
+<script id="tailwind-config">
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            "colors": {
+                    "on-secondary-fixed": "#131b2e",
+                    "background": "#f7f9fb",
+                    "on-secondary": "#ffffff",
+                    "on-secondary-container": "#5c647a",
+                    "primary": "#003527",
+                    "inverse-on-surface": "#eff1f3",
+                    "on-primary-fixed": "#002117",
+                    "on-error": "#ffffff",
+                    "inverse-primary": "#95d3ba",
+                    "on-tertiary-container": "#ea9e93",
+                    "tertiary": "#4f1f19",
+                    "on-surface-variant": "#404944",
+                    "surface-dim": "#d8dadc",
+                    "on-tertiary-fixed-variant": "#6e372f",
+                    "secondary-fixed-dim": "#bec6e0",
+                    "secondary-container": "#dae2fd",
+                    "primary-fixed": "#b0f0d6",
+                    "on-secondary-fixed-variant": "#3f465c",
+                    "secondary": "#565e74",
+                    "on-surface": "#191c1e",
+                    "on-tertiary": "#ffffff",
+                    "surface-container": "#eceef0",
+                    "surface-tint": "#2b6954",
+                    "outline-variant": "#bfc9c3",
+                    "on-error-container": "#93000a",
+                    "surface-variant": "#e0e3e5",
+                    "on-primary-container": "#80bea6",
+                    "tertiary-fixed-dim": "#ffb4a9",
+                    "surface-container-highest": "#e0e3e5",
+                    "tertiary-fixed": "#ffdad5",
+                    "surface-bright": "#f7f9fb",
+                    "secondary-fixed": "#dae2fd",
+                    "primary-container": "#064e3b",
+                    "outline": "#707974",
+                    "surface-container-high": "#e6e8ea",
+                    "tertiary-container": "#6b342d",
+                    "on-tertiary-fixed": "#380d08",
+                    "on-background": "#191c1e",
+                    "surface-container-low": "#f2f4f6",
+                    "surface-container-lowest": "#ffffff",
+                    "on-primary": "#ffffff",
+                    "on-primary-fixed-variant": "#0b513d",
+                    "inverse-surface": "#2d3133",
+                    "error-container": "#ffdad6",
+                    "primary-fixed-dim": "#95d3ba",
+                    "error": "#ba1a1a",
+                    "surface": "#f7f9fb"
+            },
+            "borderRadius": {
+                    "DEFAULT": "0.125rem",
+                    "lg": "0.25rem",
+                    "xl": "0.5rem",
+                    "full": "0.75rem"
+            },
+            "spacing": {
+                    "xs": "8px",
+                    "gutter": "12px",
+                    "xl": "32px",
+                    "base": "4px",
+                    "md": "16px",
+                    "sm": "12px",
+                    "lg": "24px",
+                    "container-padding": "16px"
+            },
+            "fontFamily": {
+                    "body-sm": ["Inter", "sans-serif"],
+                    "headline-lg": ["Hanken Grotesk", "sans-serif"],
+                    "body-lg": ["Inter", "sans-serif"],
+                    "data-display": ["JetBrains Mono", "monospace"],
+                    "label-caps": ["Inter", "sans-serif"],
+                    "headline-lg-mobile": ["Hanken Grotesk", "sans-serif"],
+                    "headline-md": ["Hanken Grotesk", "sans-serif"]
+            },
+            "fontSize": {
+                    "body-sm": ["14px", {"lineHeight": "20px", "fontWeight": "400"}],
+                    "headline-lg": ["30px", {"lineHeight": "40px", "letterSpacing": "-0.02em", "fontWeight": "700"}],
+                    "body-lg": ["16px", {"lineHeight": "24px", "fontWeight": "400"}],
+                    "data-display": ["18px", {"lineHeight": "24px", "fontWeight": "500"}],
+                    "label-caps": ["12px", {"lineHeight": "16px", "letterSpacing": "0.05em", "fontWeight": "600"}],
+                    "headline-lg-mobile": ["24px", {"lineHeight": "32px", "fontWeight": "700"}],
+                    "headline-md": ["20px", {"lineHeight": "28px", "fontWeight": "600"}]
+            }
+          }
+        }
+      }
+    </script>
+<!-- Google Fonts & Material Symbols -->
+<link href="https://fonts.googleapis.com" rel="preconnect"/>
+<link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
+<link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@600;700&amp;family=Inter:wght@400;600&amp;family=JetBrains+Mono:wght@500&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<style>
+        body { font-family: 'Inter', sans-serif; }
+        h1, h2, h3, h4, h5, h6, .font-headline-md, .font-headline-lg, .font-headline-lg-mobile { font-family: 'Hanken Grotesk', sans-serif; }
+        .font-data-display { font-family: 'JetBrains Mono', monospace; }
+        .material-symbols-outlined { font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24; }
+        .material-symbols-outlined.fill { font-variation-settings: 'FILL' 1; }
+        
+        /* Smooth scrolling */
+        html { scroll-behavior: smooth; }
+        
+        /* Custom scrollbar for webkit */
+        ::-webkit-scrollbar { width: 6px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background-color: #bfc9c3; border-radius: 20px; }
+    </style>
+</head>
+<body class="bg-background text-on-background antialiased selection:bg-primary-container selection:text-on-primary-container pb-[80px]">
+<!-- TopAppBar -->
+<header class="fixed top-0 left-0 w-full z-40 bg-surface dark:bg-on-background shadow-sm">
+<div class="flex justify-between items-center w-full px-container-padding py-xs max-w-7xl mx-auto min-h-[56px]">
+<button class="text-primary dark:text-primary-fixed hover:bg-surface-container dark:hover:bg-on-secondary-fixed-variant transition-colors p-2 rounded-full flex items-center justify-center Active: scale-95 duration-100">
+<span class="material-symbols-outlined fill">account_balance_wallet</span>
+</button>
+<h1 class="text-headline-md font-headline-md font-bold text-primary dark:text-primary-fixed tracking-tight">
+                খাতা
+            </h1>
+<button class="text-primary dark:text-primary-fixed hover:bg-surface-container dark:hover:bg-on-secondary-fixed-variant transition-colors p-2 rounded-full flex items-center justify-center Active: scale-95 duration-100">
+<span class="material-symbols-outlined">sync</span>
+</button>
+</div>
+</header>
+<!-- Main Content Area -->
+<main class="max-w-7xl mx-auto px-container-padding pt-[80px] pb-xl flex flex-col gap-lg">
+<header class="mb-sm">
+<h2 class="text-headline-lg-mobile font-headline-lg-mobile text-on-surface">সেটিংস</h2>
+<p class="text-body-sm font-body-sm text-on-surface-variant mt-1">আপনার অ্যাকাউন্ট এবং অ্যাপ্লিকেশন কনফিগার করুন</p>
+</header>
+<!-- Bento Grid Layout for Settings -->
+<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-md">
+<!-- GitHub Sync Settings Card -->
+<section class="bg-surface-container-lowest border border-outline-variant rounded-xl shadow-sm p-md flex flex-col gap-md lg:col-span-2">
+<div class="flex items-center gap-xs text-primary">
+<span class="material-symbols-outlined">cloud_sync</span>
+<h3 class="text-headline-md font-headline-md">GitHub Sync</h3>
+</div>
+<p class="text-body-sm font-body-sm text-on-surface-variant">নিরাপদে আপনার ডেটা গিটহাব রিপোজিটরিতে সিঙ্ক করুন।</p>
+<form class="flex flex-col gap-sm">
+<div class="flex flex-col gap-base">
+<label class="text-label-caps font-label-caps text-on-surface" for="gh-username">Username</label>
+<input class="min-h-[44px] rounded-lg border border-outline-variant bg-surface px-sm py-xs text-body-lg font-body-lg focus:border-primary focus:ring-1 focus:ring-primary outline-none transition-colors" id="gh-username" placeholder="octocat" type="text"/>
+</div>
+<div class="flex flex-col gap-base">
+<label class="text-label-caps font-label-caps text-on-surface" for="gh-repo">Repository Name</label>
+<input class="min-h-[44px] rounded-lg border border-outline-variant bg-surface px-sm py-xs text-body-lg font-body-lg focus:border-primary focus:ring-1 focus:ring-primary outline-none transition-colors" id="gh-repo" placeholder="khata-backup" type="text"/>
+</div>
+<div class="flex flex-col gap-base">
+<label class="text-label-caps font-label-caps text-on-surface" for="gh-token">Fine-grained Token</label>
+<div class="relative">
+<input class="w-full min-h-[44px] rounded-lg border border-outline-variant bg-surface px-sm py-xs text-body-lg font-body-lg focus:border-primary focus:ring-1 focus:ring-primary outline-none transition-colors font-data-display" id="gh-token" placeholder="github_pat_..." type="password"/>
+<button class="absolute right-2 top-1/2 -translate-y-1/2 p-1 text-on-surface-variant hover:text-primary transition-colors" type="button">
+<span class="material-symbols-outlined">visibility</span>
+</button>
+</div>
+</div>
+<div class="pt-sm">
+<button class="w-full md:w-auto min-h-[44px] bg-primary text-on-primary rounded-lg px-md font-label-caps text-label-caps hover:bg-primary-container transition-colors shadow-sm active:scale-95 duration-100 flex items-center justify-center gap-xs" type="button">
+<span class="material-symbols-outlined text-[18px]">save</span> সেভ করুন
+                        </button>
+</div>
+</form>
+</section>
+<!-- Encryption Card -->
+<section class="bg-surface-container-lowest border border-outline-variant rounded-xl shadow-sm p-md flex flex-col gap-md">
+<div class="flex items-center gap-xs text-primary">
+<span class="material-symbols-outlined">lock</span>
+<h3 class="text-headline-md font-headline-md">এনক্রিপশন</h3>
+</div>
+<form class="flex flex-col gap-sm flex-1 justify-between">
+<div class="flex flex-col gap-sm">
+<div class="flex flex-col gap-base">
+<label class="text-label-caps font-label-caps text-on-surface" for="passphrase">পাসফ্রেজ (Passphrase)</label>
+<input class="min-h-[44px] rounded-lg border border-outline-variant bg-surface px-sm py-xs text-body-lg font-body-lg focus:border-primary focus:ring-1 focus:ring-primary outline-none transition-colors" id="passphrase" type="password"/>
+</div>
+<div class="flex flex-col gap-base">
+<label class="text-label-caps font-label-caps text-on-surface" for="passphrase-confirm">নিশ্চিত করুন</label>
+<input class="min-h-[44px] rounded-lg border border-outline-variant bg-surface px-sm py-xs text-body-lg font-body-lg focus:border-primary focus:ring-1 focus:ring-primary outline-none transition-colors" id="passphrase-confirm" type="password"/>
+</div>
+</div>
+<button class="w-full min-h-[44px] border border-outline text-on-surface rounded-lg px-md font-label-caps text-label-caps hover:bg-surface-container-high transition-colors active:scale-95 duration-100 mt-sm" type="button">
+                        পাসফ্রেজ আপডেট করুন
+                    </button>
+</form>
+</section>
+<!-- Data Management Card -->
+<section class="bg-surface-container-lowest border border-outline-variant rounded-xl shadow-sm p-md flex flex-col gap-md">
+<div class="flex items-center gap-xs text-primary">
+<span class="material-symbols-outlined">storage</span>
+<h3 class="text-headline-md font-headline-md">ডেটা ম্যানেজমেন্ট</h3>
+</div>
+<div class="flex flex-col gap-sm">
+<div class="flex flex-col gap-base">
+<div class="flex justify-between items-end">
+<span class="text-label-caps font-label-caps text-on-surface">ডেটা সাইজ</span>
+<span class="text-data-display font-data-display text-sm text-tertiary">680KB / 700KB</span>
+</div>
+<!-- Progress Bar -->
+<div class="w-full h-2 bg-surface-container rounded-full overflow-hidden">
+<div class="h-full bg-tertiary rounded-full" style="width: 97%;"></div>
+</div>
+<p class="text-body-sm font-body-sm text-tertiary flex items-center gap-1 mt-1">
+<span class="material-symbols-outlined text-[16px]">warning</span>
+                            লিমিটের কাছাকাছি!
+                        </p>
+</div>
+<button class="w-full min-h-[44px] mt-sm bg-surface-container border border-outline-variant text-on-surface rounded-lg px-md font-label-caps text-label-caps hover:bg-surface-container-high transition-colors active:scale-95 duration-100 flex items-center justify-center gap-xs" type="button">
+<span class="material-symbols-outlined text-[18px]">download</span> ফাইল নামান (Backup)
+                    </button>
+</div>
+</section>
+<!-- Preferences & Localization Card -->
+<section class="bg-surface-container-lowest border border-outline-variant rounded-xl shadow-sm p-md flex flex-col gap-md">
+<div class="flex items-center gap-xs text-primary">
+<span class="material-symbols-outlined">language</span>
+<h3 class="text-headline-md font-headline-md">ভাষা ও অঞ্চল</h3>
+</div>
+<div class="flex flex-col gap-md">
+<!-- Language Toggle -->
+<div class="flex items-center justify-between">
+<span class="text-body-lg font-body-lg text-on-surface">Language</span>
+<div class="flex bg-surface-container p-1 rounded-lg border border-outline-variant">
+<button class="px-sm py-1 rounded bg-primary-container text-on-primary-container text-label-caps font-label-caps shadow-sm">বাংলা</button>
+<button class="px-sm py-1 rounded text-on-surface-variant hover:text-on-surface text-label-caps font-label-caps">EN</button>
+</div>
+</div>
+<hr class="border-surface-variant"/>
+<!-- Currency Toggle (Extra setting for density) -->
+<div class="flex items-center justify-between">
+<span class="text-body-lg font-body-lg text-on-surface">মুদ্রা (Currency)</span>
+<div class="flex bg-surface-container p-1 rounded-lg border border-outline-variant">
+<button class="px-sm py-1 rounded bg-primary-container text-on-primary-container text-label-caps font-label-caps shadow-sm">BDT</button>
+<button class="px-sm py-1 rounded text-on-surface-variant hover:text-on-surface text-label-caps font-label-caps">USD</button>
+</div>
+</div>
+</div>
+</section>
+</div>
+</main>
+<!-- BottomNavBar -->
+<nav class="fixed bottom-0 left-0 w-full z-50 flex justify-around items-center px-xs pb-xs pt-base bg-surface-container-lowest dark:bg-on-secondary-fixed border-t border-outline-variant dark:border-on-secondary-fixed-variant shadow-lg rounded-t-xl md:hidden">
+<!-- Tab 1: Inactive -->
+<a class="flex flex-col items-center justify-center text-on-secondary-container dark:text-secondary-fixed-dim px-4 py-1 hover:bg-surface-container-high dark:hover:bg-on-secondary-fixed-variant rounded-lg transition-colors group" href="#">
+<span class="material-symbols-outlined group-hover:scale-110 transition-transform duration-200">dashboard</span>
+<span class="text-label-caps font-label-caps mt-1">এক নজরে</span>
+</a>
+<!-- Tab 2: Inactive -->
+<a class="flex flex-col items-center justify-center text-on-secondary-container dark:text-secondary-fixed-dim px-4 py-1 hover:bg-surface-container-high dark:hover:bg-on-secondary-fixed-variant rounded-lg transition-colors group" href="#">
+<span class="material-symbols-outlined group-hover:scale-110 transition-transform duration-200">receipt_long</span>
+<span class="text-label-caps font-label-caps mt-1">দিনলিপি</span>
+</a>
+<!-- Tab 3: Inactive -->
+<a class="flex flex-col items-center justify-center text-on-secondary-container dark:text-secondary-fixed-dim px-4 py-1 hover:bg-surface-container-high dark:hover:bg-on-secondary-fixed-variant rounded-lg transition-colors group" href="#">
+<span class="material-symbols-outlined group-hover:scale-110 transition-transform duration-200">calculate</span>
+<span class="text-label-caps font-label-caps mt-1">হিসাব</span>
+</a>
+<!-- Tab 4: Active (Settings) -->
+<a class="flex flex-col items-center justify-center bg-primary-container dark:bg-on-primary-fixed-variant text-on-primary-container dark:text-primary-fixed rounded-full px-4 py-1 scale-90 duration-200 transition-all pointer-events-none" href="#">
+<span class="material-symbols-outlined fill">settings</span>
+<span class="text-label-caps font-label-caps mt-1">সেটিংস</span>
+</a>
+</nav>
+</body></html>
