@@ -335,10 +335,41 @@ nav button:active .ic{transform:scale(.9)}
    Animating the container, not each row, keeps it cheap on a mid-range phone. */
 @keyframes viewIn{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
 #view{animation:viewIn .17s ease-out}
-@keyframes sheetIn{from{transform:translateY(100%)}to{transform:none}}
-#sheet .box{animation:sheetIn .22s cubic-bezier(.2,.8,.2,1)}
-@keyframes fadeIn{from{opacity:0}to{opacity:1}}
-#sheet{animation:fadeIn .18s ease-out}
+/* Sheet motion. The exit is an animation, not a transition, for two reasons:
+   sheetOut's implicit `from` picks up whatever transform the finger left behind,
+   so one keyframe serves both a button close and a drag dismiss with no jump;
+   and animationend fires even at a 1ms duration, where transitionend does not —
+   so reduced motion gets an instant close rather than sitting out a fallback
+   timer. */
+@keyframes sheetIn{from{transform:translate3d(0,100%,0)}}
+@keyframes sheetOut{to{transform:translate3d(0,100%,0)}}
+#sheet .box{
+  transform:translate3d(0,var(--dy,0px),0);
+  transition:transform .22s cubic-bezier(.22,1,.36,1);
+  will-change:transform;
+}
+#sheet.enter .box{animation:sheetIn .24s cubic-bezier(.22,1,.36,1)}
+#sheet.dragging .box{transition:none;animation:none}
+#sheet.closing .box{animation:sheetOut .22s both}
+/* Fades with the drag, so letting go halfway looks like a decision rather than
+   a glitch. Driven by a variable because opacity on #sheet would fade the sheet
+   along with its backdrop. */
+#sheet{background:rgba(10,14,20,calc(.45 * var(--p,1)));transition:background-color .22s}
+#sheet.dragging{transition:none}
+#sheet.closing{--p:0;pointer-events:none}
+/* #sheet is fixed inset:0, so its scroll ancestor is the document — without
+   this, dragging the backdrop scrolls the ledger behind the open sheet. Better
+   than locking body overflow, which would lose your place in the day history. */
+#sheet{touch-action:none}
+#sheet .box{touch-action:pan-y}
+#sheet .grab,#sheet .head{touch-action:none}
+/* The 38x4 pill is the visible affordance; the grabbable area is a real target. */
+#sheet .grab{
+  width:100%;max-width:none;height:auto;background:none;margin:0;
+  padding:10px 0 12px;display:flex;justify-content:center;cursor:grab;
+}
+#sheet .grab::before{content:"";width:38px;height:4px;background:var(--rule);border-radius:2px}
+#sheet.dragging .grab{cursor:grabbing}
 
 /* Scrollbars are desktop furniture. The app still scrolls; it just does not
    advertise it. */

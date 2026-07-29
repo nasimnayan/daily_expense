@@ -1024,7 +1024,7 @@ function doEdit() {
 
 let SH = null;
 
-function openSheet(mode, payload) {
+function openSheet(mode, payload, reuse) {
   const today = todayISO();
   SH = { mode, ...payload };
   let body = '';
@@ -1102,14 +1102,53 @@ function openSheet(mode, payload) {
     : mode === 'repay' ? t('repayTitle')
     : mode === 'edit' ? `${t('editRow')} — ${t(FORMS[SH.kind].title)}`
     : (SH.txn && SH.txn.id ? t('editEntry') : t('addExpense'));
-  $('#sheet').innerHTML = `<div class="box">
+  const sh = $('#sheet');
+  if (CLOSING) finishClose();     // a queued close must not wipe a fresh sheet
+  /* .hide is display:none, and an element inserted into an undisplayed subtree
+     has no dependable animation start — so the class comes off first. */
+  sh.classList.remove('hide');
+  sh.style.removeProperty('--dy');
+  /* The slide-up is scoped to .enter rather than to .box, because tapping a
+     category chip rebuilds .box wholesale (see reopenSheet). Without the scope
+     the sheet would leap up from the bottom again on every chip tap. */
+  sh.classList.toggle('enter', !reuse);
+  sh.innerHTML = `<div class="box">
     <div class="grab" aria-hidden="true"></div>
     <div class="head"><h3 id="sheetTitle">${title}</h3><button class="x" id="shClose" aria-label="${LANG ? 'Close' : 'বন্ধ'}">×</button></div>
     ${body}</div>`;
-  $('#sheet').classList.remove('hide');
+  if (!reuse) setTimeout(() => sh.classList.remove('enter'), 300);
   const a = $('#shAmt'); if (a) a.focus();
 }
-function closeSheet() { SH = null; $('#sheet').classList.add('hide'); $('#sheet').innerHTML = ''; }
+
+/* Closing in two phases so the sheet can animate out. SH is cleared first and
+   synchronously: midEdit() reads it to decide whether a background pull would
+   trample something half-typed, and Escape tests it to avoid closing twice.
+   The innerHTML clear has to wait for the animation, but the blur cannot — a
+   focused #shAmt left behind would keep midEdit() true and silently stop this
+   device pulling, forever. */
+let CLOSING = false, closeT = null;
+
+function closeSheet() {
+  if (CLOSING) return;
+  const sh = $('#sheet'), box = sh.querySelector('.box');
+  SH = null;
+  if (sh.contains(document.activeElement)) document.activeElement.blur();
+  if (!box) return finishClose();
+  CLOSING = true;
+  sh.classList.remove('enter', 'dragging');
+  sh.classList.add('closing');
+  box.addEventListener('animationend', finishClose, { once: true });
+  closeT = setTimeout(finishClose, 320);        // in case animationend never lands
+}
+
+function finishClose() {
+  clearTimeout(closeT); closeT = null; CLOSING = false;
+  const sh = $('#sheet');
+  sh.classList.remove('closing', 'dragging', 'enter');
+  sh.style.removeProperty('--dy');
+  sh.classList.add('hide');
+  sh.innerHTML = '';
+}
 
 /* Tapping a category chip re-renders the sheet, so anything already typed has
    to be carried back into SH first or it would silently vanish. */
@@ -1122,7 +1161,7 @@ function reopenSheet() {
     if (ac) SH.txn.acct = ac.value;
     if (dt) SH.txn.date = dt.value;
   }
-  openSheet(SH.mode, SH);
+  openSheet(SH.mode, SH, true);   // reuse: no slide-up replay on a chip tap
 }
 
 const val = id => { const e = $('#' + id); return e ? String(e.value).trim() : ''; };
@@ -1420,7 +1459,62 @@ document.addEventListener('keydown', e => {
   }
   if (e.key === 'Enter' && (e.target.id === 'gPass' || e.target.id === 'gPass2')) $('#gGo').click();
 });
-$('#sheet').addEventListener('click', e => { if (e.target.id === 'sheet') closeSheet(); });
+/* Drag the sheet down to dismiss it.
+
+   Bound once to #sheet, which is never replaced — .box inside it is rebuilt on
+   every category-chip tap, so a listener on .box would be detached the first
+   time you changed category.
+
+   The drag surface is the handle and the title row, and CSS gives it
+   touch-action:none, so this owns the gesture outright and needs no axis lock.
+   The form itself keeps pan-y and scrolls normally. */
+let dragY = 0, dragT = 0, dragId = null, dragH = 0, sheetDragEnd = 0;
+
+$('#sheet').addEventListener('pointerdown', e => {
+  if (!e.isPrimary || CLOSING || !SH) return;
+  if (e.target.closest('button,input,select,textarea')) return;   // never steal #shClose
+  if (!e.target.closest('.grab,.head')) return;
+  const box = $('#sheet .box'); if (!box) return;
+  dragId = e.pointerId; dragY = e.clientY; dragT = performance.now();
+  dragH = box.offsetHeight || 400;
+}, { passive: true });
+
+$('#sheet').addEventListener('pointermove', e => {
+  if (dragId === null || e.pointerId !== dragId) return;
+  let dy = e.clientY - dragY;
+  if (dy < 0) dy *= .18;                    // upward: rubber band, never lifts far
+  const sh = $('#sheet');
+  /* .dragging goes on at the first real movement, not on pointerdown, so a
+     plain tap on the header never kills the transition. */
+  if (Math.abs(dy) > 4) sh.classList.add('dragging');
+  sh.style.setProperty('--dy', dy + 'px');
+  sh.style.setProperty('--p', String(Math.max(0, 1 - dy / dragH)));
+}, { passive: true });
+
+const endSheetDrag = commit => e => {
+  if (dragId === null || e.pointerId !== dragId) return;
+  const dy = e.clientY - dragY, v = dy / Math.max(1, performance.now() - dragT);
+  dragId = null;
+  const sh = $('#sheet');
+  if (Math.abs(dy) > 8) sheetDragEnd = performance.now();
+  sh.classList.remove('dragging');
+  /* pointercancel means Chrome took the gesture: always snap back, never
+     dismiss on a gesture this code did not see finish. */
+  if (commit && (dy > 96 || v > .6)) return closeSheet();
+  sh.style.setProperty('--dy', '0px');
+  sh.style.setProperty('--p', '1');
+};
+$('#sheet').addEventListener('pointerup', endSheetDrag(true), { passive: true });
+$('#sheet').addEventListener('pointercancel', endSheetDrag(false), { passive: true });
+
+$('#sheet').addEventListener('click', e => {
+  /* Chrome resolves a click to the common ancestor of press and release. Drag
+     down from the handle and let go above the box and that ancestor is #sheet
+     itself, which would read as a backdrop tap and close a sheet the drag had
+     just decided to keep. */
+  if (performance.now() - sheetDragEnd < 400) return;
+  if (e.target.id === 'sheet') closeSheet();
+});
 
 /* ---------------- gate and boot ---------------- */
 function paintGate() {
