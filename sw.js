@@ -7,13 +7,14 @@
    connection you always get the current code, and the cache is only a
    fallback, so offline still works exactly as before. */
 
-const BUILD = '2026-07-29.5';
+const BUILD = '2026-07-29.6';
 const CACHE = `khata-${BUILD}`;
 
 const SHELL = [
   './', './index.html', './app.css',
   './js/app.js', './js/vault.js', './js/calc.js',
   './manifest.webmanifest', './icon.svg',
+  './icon-192.png', './icon-512.png', './icon-180.png',
 ];
 
 /* Files whose freshness matters. Anything else same-origin is cache-first. */
