@@ -12,6 +12,14 @@
   --teal:#0F6E56; --teal-l:#E1F0EA;
   --brick:#9E2B22; --brick-l:#F6E8E6;
   --r:10px; --tap:44px;
+  /* Bottom furniture measured once, then everything clears it by arithmetic.
+     These used to be three unrelated magic numbers — #app padding 120px, the
+     add button at 64px, the toast at 96px — so changing the nav meant hunting
+     for whatever else silently depended on its height. */
+  --navh:56px;
+  --safeb:env(safe-area-inset-bottom,0px);
+  --navspace:calc(var(--navh) + var(--safeb));
+  --fabspace:calc(var(--navspace) + 60px);   /* nav, plus the add button above it */
   --f-body:'Hind Siliguri','Noto Sans Bengali','Nirmala UI',system-ui,-apple-system,'Segoe UI',Roboto,sans-serif;
   --f-disp:'Noto Serif Bengali','Hind Siliguri','Nirmala UI',Georgia,serif;
   --f-num:ui-monospace,'SF Mono','Cascadia Mono','Roboto Mono',Consolas,monospace;
@@ -42,7 +50,7 @@ button{cursor:pointer;background:none;border:none}
 .sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)}
 
 /* ---------- shell ---------- */
-#app{max-width:620px;margin:0 auto;padding:0 16px 120px}
+#app{max-width:620px;margin:0 auto;padding:0 16px calc(var(--fabspace) + 24px)}
 header.top{
   display:flex;align-items:baseline;gap:10px;
   padding:20px 0 14px;border-bottom:1.5px solid var(--ink);margin-bottom:2px;
@@ -162,6 +170,10 @@ header.top .clock i{font-style:normal;font-size:13px;color:var(--ink-3);margin-l
   background:var(--card);font-size:16px;min-height:var(--tap);
 }
 .field input.num{font-size:19px;font-weight:500}
+/* The amount is the sheet's subject, so it is sized like one. Tabular figures
+   keep the digits from shifting as they are typed. */
+.inp.num.big{font-size:30px;font-weight:500;padding:10px 14px;min-height:58px;
+  font-family:var(--f-num);font-variant-numeric:tabular-nums;letter-spacing:-.02em}
 .btn{
   padding:12px 20px;border-radius:var(--r);background:var(--ink);color:var(--paper);
   font-weight:500;font-size:15px;border:1px solid var(--ink);min-height:var(--tap);
@@ -201,7 +213,8 @@ label.fl{display:block;font-size:12.5px;color:var(--ink-3);margin:10px 0 4px}
 nav{
   position:fixed;left:0;right:0;bottom:0;z-index:40;background:var(--card);
   border-top:1.5px solid var(--ink);display:flex;
-  padding-bottom:env(safe-area-inset-bottom);
+  min-height:var(--navh);
+  padding-bottom:var(--safeb);
 }
 nav button{
   flex:1;padding:8px 2px 9px;font-size:11.5px;color:var(--ink-3);
@@ -213,7 +226,7 @@ nav button.on{color:var(--ink);border-top-color:var(--marigold)}
 
 /* ---------- floating add ---------- */
 #fab{
-  position:fixed;right:16px;bottom:calc(64px + env(safe-area-inset-bottom));z-index:45;
+  position:fixed;right:16px;bottom:calc(var(--navspace) + 12px);z-index:45;
   background:var(--marigold);color:#2A1B00;border-radius:999px;
   padding:14px 20px;font-size:15px;font-weight:600;
   box-shadow:0 6px 20px rgba(0,0,0,.22);min-height:var(--tap);
@@ -248,13 +261,26 @@ nav button.on{color:var(--ink);border-top-color:var(--marigold)}
 /* ---------- quick-add sheet ---------- */
 #sheet{position:fixed;inset:0;z-index:80;display:flex;align-items:flex-end;justify-content:center;
   background:rgba(10,14,20,.45)}
+/* dvh, not vh. vh resolves against the LARGE viewport — the one with Chrome's
+   address bar hidden — so 92vh was taller than the screen whenever the bar was
+   showing. Measured on a 412x780 Pixel 6: 833px of expense-sheet content in a
+   718px box, putting the save button 97px below the fold, in a sheet that gave
+   no hint it scrolled. dvh tracks the viewport that actually exists, and with
+   interactive-widget=resizes-content it shrinks for the keyboard too. */
 #sheet .box{
   width:100%;max-width:620px;background:var(--paper);border-top:1.5px solid var(--ink);
-  border-radius:16px 16px 0 0;padding:8px 16px calc(20px + env(safe-area-inset-bottom));
-  max-height:92vh;overflow:auto;
+  border-radius:16px 16px 0 0;padding:8px 16px calc(20px + var(--safeb));
+  max-height:92dvh;overflow:auto;overscroll-behavior:contain;
 }
 #sheet .grab{width:38px;height:4px;background:var(--rule);border-radius:2px;margin:6px auto 12px}
-#sheet .head{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px}
+/* Title and close button stay put while the categories scroll past. */
+#sheet .head{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;
+  position:sticky;top:0;z-index:2;background:var(--paper);padding-bottom:6px}
+/* Belt and braces for the same problem: even if the content is taller than the
+   sheet, the primary action never leaves the screen. The skirt is painted in
+   paper so rows scrolling underneath do not show through the gap. */
+#sheet .box>.btn.wide{position:sticky;bottom:0;z-index:2;
+  box-shadow:0 10px 0 10px var(--paper)}
 #sheet .head h3{font-family:var(--f-disp);font-size:18px;font-weight:600}
 #sheet .x{font-size:22px;color:var(--ink-3);min-width:var(--tap);min-height:var(--tap)}
 @media(min-width:700px){
@@ -262,7 +288,78 @@ nav button.on{color:var(--ink);border-top-color:var(--marigold)}
   #sheet .box{border-radius:16px;border:1.5px solid var(--ink);max-height:88vh}
 }
 
-#toast{position:fixed;left:50%;transform:translateX(-50%);bottom:96px;z-index:95;
+#toast{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(var(--fabspace) + 12px);z-index:95;
   background:var(--ink);color:var(--paper);padding:10px 17px;border-radius:999px;font-size:14px;
   opacity:0;transition:.25s;pointer-events:none;max-width:88vw;text-align:center}
 #toast.on{opacity:1}
+
+/* ---------- installed-app behaviour ----------
+
+   Everything below is about the difference between a page and an app. None of
+   it changes the design; it removes the browser tells. */
+
+/* Chrome's pull-to-refresh reloads the whole app mid-entry, which on a ledger
+   reads as data loss. Contained here, and re-used as the gesture budget for
+   swiping a row. */
+html{overscroll-behavior-y:contain}
+body{overscroll-behavior-y:contain;-webkit-tap-highlight-color:transparent}
+
+/* Chrome furniture, not content: a long-press on a tab or a total should not
+   start a text selection. Notes, amounts and the raw sync error stay selectable
+   because those are the things worth copying. */
+nav,#fab,header.top,.chip,.btn,.togg button,.row .del,.row .edit,.dayhead,#sheet .head{
+  -webkit-user-select:none;user-select:none;
+}
+.row .lab span,.note,.note code,.hero .big,.kpi .v{-webkit-user-select:text;user-select:text}
+
+/* Removes the ~300ms tap delay without disabling pinch-zoom on the page. */
+nav button,#fab,.chip,.btn,.togg button,.row.tap,.dayhead,.row .del,.row .edit{touch-action:manipulation}
+
+/* Touch needs press feedback, not hover feedback. A finger never hovers, so on
+   a phone the :hover rules above either did nothing or — worse — stuck after
+   the tap, leaving a row looking selected. Neutralised where there is no
+   hover, and replaced with a press state that confirms the tap landed. */
+@media (hover:none){
+  .row.tap:hover{background:transparent}
+  .btn:hover{opacity:1}
+  .chip:hover{border-color:var(--rule)}
+  #fab:hover{filter:none}
+}
+.btn:active,.chip:active,.togg button:active,#fab:active{transform:scale(.97)}
+.row.tap:active,.dayhead:active{background:var(--card)}
+nav button:active .ic{transform:scale(.9)}
+.btn,.chip,.togg button,#fab,nav button .ic{transition:transform .09s ease-out}
+
+/* A tab change repaints #view wholesale. Without this the new screen appears in
+   one hard cut, which is the single biggest thing that reads as "web page".
+   Animating the container, not each row, keeps it cheap on a mid-range phone. */
+@keyframes viewIn{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+#view{animation:viewIn .17s ease-out}
+@keyframes sheetIn{from{transform:translateY(100%)}to{transform:none}}
+#sheet .box{animation:sheetIn .22s cubic-bezier(.2,.8,.2,1)}
+@keyframes fadeIn{from{opacity:0}to{opacity:1}}
+#sheet{animation:fadeIn .18s ease-out}
+
+/* Scrollbars are desktop furniture. The app still scrolls; it just does not
+   advertise it. */
+#view,#sheet .box{scrollbar-width:none}
+#view::-webkit-scrollbar,#sheet .box::-webkit-scrollbar{display:none}
+
+/* The clock reflows every second. Reserving the digits' width stops the header
+   jittering as the numerals change. */
+header.top .clock{font-variant-numeric:tabular-nums}
+
+/* The big number is the one thing that must never wrap or clip: a lakh-scale
+   total at 44px overflowed a 380px content column. */
+.hero .big{font-size:clamp(30px,10.5vw,44px)}
+.kpi .v{font-size:clamp(19px,5.6vw,23px)}
+/* Grid and flex children default to min-width:auto, which is what lets a long
+   category name or an unbroken sync error push the page sideways. */
+.row .lab,.up-row .w,.cbar .t,.kpi{min-width:0}
+.note code{overflow-wrap:anywhere}
+
+@media (prefers-reduced-motion:reduce){
+  *,*::before,*::after{animation-duration:.01ms !important;animation-iteration-count:1 !important;
+    transition-duration:.01ms !important;scroll-behavior:auto !important}
+  .btn:active,.chip:active,.togg button:active,#fab:active{transform:none}
+}

@@ -1035,19 +1035,26 @@ function openSheet(mode, payload) {
     SH.type = x.type || 'expense';
     SH.cat = x.cat || null; SH.src = x.src || null;
     SH.planned = x.planned !== false;
-    body = `<div class="togg" style="margin-bottom:11px">
+    /* Amount first, and the sixteen category chips after it.
+       The other way round put the one field you opened this sheet to fill below
+       the fold on a phone: the chips are 16 pills over five rows, so on a
+       412x780 Pixel 6 the amount box started 700px down. The keyboard is
+       already up on the focused field, so the common entry is now type-then-save
+       without scrolling, and picking a category is the deliberate extra step
+       rather than the unavoidable first one. */
+    body = `<label class="fl" for="shAmt">${t('amount')}</label>
+      <input class="inp w num big" id="shAmt" name="shAmt" type="number" inputmode="decimal" min="0" value="${x.amount || ''}">
+      <div class="chips" style="margin-top:9px">` +
+      [50, 100, 200, 500, 1000].map(v => `<button class="chip mg" data-shquick="${v}">${grp(v)}</button>`).join('') + `</div>
+      <div class="togg" style="margin-top:14px">
         <button data-shtype="expense" class="${SH.type === 'expense' ? 'on' : ''}">${t('expense')}</button>
         <button data-shtype="income" class="${SH.type === 'income' ? 'on' : ''}">${t('income')}</button>
       </div>
-      <div class="chips">` +
+      <div class="chips" style="margin-top:11px">` +
       (SH.type === 'expense'
         ? S.cats.map(c => `<button class="chip ${SH.cat === c.id ? 'on' : ''}" data-shcat="${c.id}">${esc(L(c))}</button>`).join('')
         : S.srcs.map(s => `<button class="chip ${SH.src === s.id ? 'on' : ''}" data-shsrc="${s.id}">${esc(L(s))}</button>`).join('')) +
       `</div>
-      <div class="chips" style="margin-top:9px">` +
-      [50, 100, 200, 500, 1000].map(v => `<button class="chip mg" data-shquick="${v}">${grp(v)}</button>`).join('') + `</div>
-      <label class="fl" for="shAmt">${t('amount')}</label>
-      <input class="inp w num" id="shAmt" name="shAmt" type="number" inputmode="decimal" min="0" value="${x.amount || ''}">
       <label class="fl" for="shNote">${t('note')}</label>
       <input class="inp w" id="shNote" name="shNote" value="${esc(x.note || '')}">
       <div class="grid2">
