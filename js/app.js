@@ -948,8 +948,7 @@ function budgetSection(p) {
      but nothing was reading `archived`, so they were all still drawn. */
   const hidden = S.cats.filter(c => c.archived);
   if (hidden.length) {
-    h += `<div class="ledger" style="margin-top:20px">
-        <div class="row head">${t('hiddenLines')}</div></div>
+    h += `<div class="hidhead">${t('hiddenLines')}</div>
       <div class="note">${t('hiddenHint')}</div>
       <div class="chips hidden-chips" style="margin-top:9px">` +
       hidden.map(c => `<button class="chip" data-unhide="${c.id}">${esc(L(c))}</button>`).join('') +
@@ -1645,7 +1644,17 @@ document.addEventListener('click', async e => {
   if (d.shtype) { SH.txn.type = d.shtype; SH.txn.cat = null; SH.txn.src = null; return reopenSheet(); }
   if (d.shcat) { SH.txn.cat = d.shcat; return reopenSheet(); }
   if (d.shsrc) { SH.txn.src = d.shsrc; return reopenSheet(); }
-  if (d.shquick) { const i = $('#shAmt'); i.value = (Number(i.value) || 0) + Number(d.shquick); i.focus(); return; }
+  /* Assigning .value from script fires nothing, so the event has to be raised
+     by hand — otherwise the remaining figure beside the chosen line keeps
+     showing the balance from before the tap. Dispatching rather than calling
+     paintSheetLeft keeps anything else listening on input working too. */
+  if (d.shquick) {
+    const i = $('#shAmt');
+    i.value = (Number(i.value) || 0) + Number(d.shquick);
+    i.dispatchEvent(new Event('input', { bubbles: true }));
+    i.focus();
+    return;
+  }
   if (b.id === 'shPlanned') { SH.txn.planned = !SH.planned; return reopenSheet(); }
   if (b.id === 'shSave') return saveSheetTxn();
   if (b.id === 'shPay') return doPay();
@@ -1656,12 +1665,15 @@ document.addEventListener('click', async e => {
 
   /* budget: groups and lines */
   if (d.addline) {
-    const c = { id: uid(), bn: t('newLine'), en: 'New line', group: d.addline, budget: null };
+    /* Both names are written, not just the one the interface happens to be in.
+       Everything else in the state carries both, and a group created in English
+       mode whose bn read "New group" would surface on the Bangla side. */
+    const c = { id: uid(), bn: 'নতুন লাইন', en: 'New line', group: d.addline, budget: null };
     S.cats.push(c); stampSince(); change();
     return openSheet('edit', { kind: 'line', id: c.id });
   }
   if (d.addgroup) {
-    const g = { id: uid(), bn: t('addGroup'), en: 'New group', kind: 'var' };
+    const g = { id: uid(), bn: 'নতুন গ্রুপ', en: 'New group', kind: 'var' };
     S.groups.push(g); change();
     return openSheet('edit', { kind: 'grp', id: g.id });
   }
