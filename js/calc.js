@@ -36,6 +36,20 @@ export function nextDom(today, dd) {
 export const catOf = (S, id) => S.cats.find(c => c.id === id);
 export const acctOf = (S, id) => S.accts.find(a => a.id === id);
 export const srcOf = (S, id) => S.srcs.find(s => s.id === id);
+export const groupOf = (S, id) => (S.groups || []).find(g => g.id === id);
+
+/* How a budget line behaves comes from its group, never from the group's id.
+   Those ids are user data now — 'his' or 'travel' says nothing about the money
+   — so everything that used to read the old hardcoded `c.group` string reads
+   this instead. Anything unresolvable counts as ordinary variable spending,
+   which is the assumption that loses the least if a group goes missing. */
+export function kindOf(S, cat) {
+  const g = cat && groupOf(S, cat.group);
+  return (g && g.kind) || 'var';
+}
+/* Hidden lines stay in S.cats so old entries still resolve; they only leave the
+   chip list and the budget sheet. */
+export const activeCats = S => S.cats.filter(c => !c.archived);
 
 /* ---------------- balance: the only writers of a.bal ---------------- */
 
@@ -84,7 +98,14 @@ export const spentOn = (S, date) =>
 
 /* ---------------- budget ---------------- */
 
-export const monthBudget = S => S.cats.reduce((s, c) => s + (Number(c.budget) || 0), 0);
+/* What can be spent this month. A saving envelope is deliberately left out: the
+   tour fund is money set aside, not money available, and folding it in here
+   would inflate the daily budget the Overview hero bar is drawn from. Hidden
+   lines are out too — a line you cannot pick cannot be spent against. */
+const budgetSum = (S, want) => S.cats.reduce((s, c) =>
+  s + (!c.archived && (kindOf(S, c) === 'save') === want ? Number(c.budget) || 0 : 0), 0);
+export const monthBudget = S => budgetSum(S, false);
+export const saveBudget = S => budgetSum(S, true);
 export function dailyBudget(S, p) {
   if (S.settings.dailyBudget) return Number(S.settings.dailyBudget);
   const mb = monthBudget(S);
@@ -145,14 +166,77 @@ export function byCategory(S, p) {
   return Object.entries(m).map(([id, v]) => ({ cat: catOf(S, id), v }))
     .filter(x => x.cat).sort((a, b) => b.v - a.v);
 }
+
+/* ---------------- envelopes ----------------
+
+   One budget line, as it stands right now.
+
+   An ordinary line resets: it holds this month's allocation against this
+   month's spend, and last month is none of its business. A `save` line does
+   not reset — it is a tour fund, so every month since it started adds another
+   allocation and month end takes nothing away. Both come back in the same
+   shape, so no view has to know which kind it is holding. */
+const pNum = p => { const [y, m] = String(p).split('-').map(Number); return y * 12 + (m - 1); };
+
+export const spentInCat = (S, catId, p) =>
+  sum(txnsIn(S, p, 'expense').filter(x => x.cat === catId));
+export const spentSince = (S, catId, fromP) =>
+  sum(S.txns.filter(x => x.type === 'expense' && x.cat === catId
+    && pNum(periodOf(S, x.date)) >= pNum(fromP)));
+
+export function envelope(S, cat, p) {
+  const kind = kindOf(S, cat), budget = Number(cat.budget) || 0;
+  if (kind !== 'save') {
+    const spent = spentInCat(S, cat.id, p);
+    return { kind, budget, allocated: budget, spent, left: budget - spent, months: 1 };
+  }
+  /* A line created this month, or one whose `since` somehow sits in the future,
+     has had exactly one instalment — never a negative number of months. */
+  const from = cat.since && pNum(cat.since) <= pNum(p) ? cat.since : p;
+  const months = pNum(p) - pNum(from) + 1;
+  const allocated = budget * months, spent = spentSince(S, cat.id, from);
+  return { kind, budget, allocated, spent, left: allocated - spent, months };
+}
+
 export function fixedVar(S, p) {
   let f = 0, v = 0;
   txnsIn(S, p, 'expense').forEach(x => {
     const c = catOf(S, x.cat); if (!c) return;
-    if (c.group === 'fixed' || c.group === 'debt' || c.group === 'save') f += Number(x.amount) || 0;
-    else v += Number(x.amount) || 0;
+    if (kindOf(S, c) === 'var') v += Number(x.amount) || 0;
+    else f += Number(x.amount) || 0;
   });
   return { f, v };
+}
+
+/* The Overview breakdown, gathered the way the budget is written: group by
+   group, in the order the groups are listed, lines inside sorted by outflow.
+   A hidden line still appears if money went through it this month — the point
+   of hiding is to shorten the chip list, not to hide spending that happened.
+   Anything whose group has gone missing is collected at the end rather than
+   dropped, which is what the flat version used to do silently. */
+export function byGroup(S, p) {
+  const spent = {};
+  txnsIn(S, p, 'expense').forEach(x => { spent[x.cat] = (spent[x.cat] || 0) + (Number(x.amount) || 0); });
+  const seen = new Set(), out = [];
+  for (const g of (S.groups || [])) {
+    const items = S.cats
+      .filter(c => c.group === g.id && (!c.archived || spent[c.id]))
+      .map(c => ({ cat: c, v: spent[c.id] || 0, env: envelope(S, c, p) }))
+      .filter(x => x.v || Number(x.cat.budget))
+      .sort((a, b) => b.v - a.v);
+    items.forEach(x => seen.add(x.cat.id));
+    if (items.length) out.push({ group: g, items, total: items.reduce((s, x) => s + x.v, 0) });
+  }
+  const loose = Object.keys(spent).filter(id => !seen.has(id));
+  if (loose.length) {
+    const items = loose.map(id => ({ cat: catOf(S, id) || { id, bn: 'অজানা খাত', en: 'Unknown' }, v: spent[id], env: null }))
+      .sort((a, b) => b.v - a.v);
+    out.push({
+      group: { id: '_loose', bn: 'অন্যান্য', en: 'Other', kind: 'var' },
+      items, total: items.reduce((s, x) => s + x.v, 0),
+    });
+  }
+  return out;
 }
 export function plannedShare(S, p) {
   const xs = txnsIn(S, p, 'expense');

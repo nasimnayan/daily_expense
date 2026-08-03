@@ -205,11 +205,54 @@ function toast(msg) {
 }
 
 /* ---------------- state ---------------- */
+
+/* The budget on paper is a short list of named lines gathered under headings,
+   so the headings are data as well. `kind` is the only switch, and it drives
+   everything from one place: a 'save' group accrues month on month and stays
+   out of the daily budget, while 'fixed' and 'var' both reset at month end and
+   differ only in the fixed-vs-variable split.
+
+   The last four groups carry the original sixteen categories over under the
+   grouping they already had. The one called 'save' is kind 'fixed', not 'save'
+   — DPS has always counted against the month's budget, and quietly
+   reclassifying it here would move every number in a book that already exists.
+   Only the tour fund accrues. */
+const Grp = (id, bnName, en, kind) => ({ id, bn: bnName, en, kind });
+const freshGroups = () => [
+  Grp('his', 'তার খরচ', 'His expenses', 'var'),
+  Grp('her', 'ওর খরচ', 'Her expenses', 'var'),
+  Grp('travel', 'ভ্রমণ ও ট্যুর', 'Travel and tour', 'save'),
+  Grp('extra', 'অতিরিক্ত খরচ', 'Extra expenses', 'var'),
+  Grp('fixed', 'নির্দিষ্ট খরচ', 'Fixed costs', 'fixed'),
+  Grp('var', 'সংসার খরচ', 'Household', 'var'),
+  Grp('debt', 'ঋণ', 'Debt', 'fixed'),
+  Grp('save', 'সঞ্চয়', 'Savings', 'fixed'),
+];
+
+/* The note, line for line. Its own subtotal reads 30,000 where the lines add up
+   to 29,500; they are seeded exactly as written and every total is worked out
+   live, so the gap surfaces on the Plan tab where it can be settled, instead of
+   being absorbed here by a number nobody asked for. */
+const Line = (id, bnName, en, group, budget) => ({ id, bn: bnName, en, group, budget });
+const freshLines = () => [
+  Line('his_bike', 'বাইক খরচ', 'Bike spends', 'his', 2000),
+  Line('his_lunch', 'দুপুরের খাবার', 'Lunch', 'his', 2500),
+  Line('his_snack', 'নিয়মিত নাস্তা', 'Regular snacking', 'his', 3000),
+  Line('his_pocket', 'হাতখরচ', 'Pocket money', 'his', 2000),
+  Line('her_skin', 'ত্বকের যত্ন', 'Skincare', 'her', 3000),
+  Line('her_shop', 'কেনাকাটা', 'Shopping', 'her', 3000),
+  Line('her_meds', 'ওষুধ', 'Meds', 'her', 1000),
+  Line('her_pocket', 'হাতখরচ', 'Pocket money', 'her', 2000),
+  Line('tour_fund', 'ট্যুর ফান্ড', 'Tour fund', 'travel', 6000),
+  Line('extra_misc', 'অতিরিক্ত', 'Extra', 'extra', 5000),
+];
+
 function freshState() {
   const Cat = (id, bnName, en, group) => ({ id, bn: bnName, en, group, budget: null });
   return {
     v: 2, updatedAt: new Date().toISOString(),
     settings: { lang: 0, monthStartDay: 1, dailyBudget: 0, sync: null },
+    groups: freshGroups(),
     cats: [
       Cat('rent', 'বাড়ি ভাড়া', 'House rent', 'fixed'),
       Cat('util', 'বিদ্যুৎ-গ্যাস-পানি', 'Utilities', 'fixed'),
@@ -244,10 +287,40 @@ function freshState() {
   };
 }
 
+/* Turns a book that budgets by category into one that budgets by named line.
+   Runs once behind a flag: afterwards the groups and the lines are ordinary
+   user data, and re-seeding would resurrect a heading someone deleted on
+   purpose or refill a budget they zeroed.
+
+   Nothing is thrown away. The sixteen stock categories stay in S.cats so old
+   entries, day rows and recurring items still resolve through catOf; the ones
+   that were never used are only marked hidden, which keeps them off the chip
+   list and out of the budget sheet, and one tap on the Plan tab brings any of
+   them back. */
+function seedBudget(st) {
+  if (st.budgetSeeded) return st;
+  if (!st.groups.length) st.groups = freshGroups();
+  freshLines().forEach(l => { if (!st.cats.some(c => c.id === l.id)) st.cats.push({ ...l }); });
+  /* A line counts as in use if money has gone through it, if it carries a
+     budget, or if something other than the chip list writes to it: a recurring
+     item, or doPay, which posts loan instalments to 'emi' and DPS payments to
+     'dps' by id. Hiding one of those would land an entry in a category the
+     Plan tab no longer shows. */
+  const inUse = new Set(['emi', 'dps']);
+  st.txns.forEach(x => inUse.add(x.cat));
+  st.recur.forEach(r => inUse.add(r.cat));
+  st.cats.forEach(c => {
+    if (inUse.has(c.id) || Number(c.budget)) return;
+    c.archived = true;
+  });
+  st.budgetSeeded = true;
+  return st;
+}
+
 /* Idempotent. Runs on every load, so it must be safe to apply twice. */
 function migrate(st) {
   if (!st.settings) st.settings = {};
-  ['cats', 'accts', 'srcs', 'txns', 'dps', 'loans', 'lends', 'assets', 'goals', 'recur', 'reminders']
+  ['cats', 'accts', 'srcs', 'txns', 'dps', 'loans', 'lends', 'assets', 'goals', 'recur', 'reminders', 'groups']
     .forEach(k => { if (!Array.isArray(st[k])) st[k] = []; });
   const f = freshState();
   if (!st.cats.length) st.cats = f.cats;
@@ -266,6 +339,14 @@ function migrate(st) {
   /* Existing txn.date values are deliberately left alone. Pinning the clock to
      Dhaka changes how NEW dates are derived; silently moving old entries to a
      different day would be worse than the problem it solves. */
+  seedBudget(st);
+  /* A saving line with no start date has not been accruing from anywhere in
+     particular, so count it from this month. envelope() assumes the same thing
+     when the field is missing; writing it down means the answer stops moving
+     once the month turns. This sits outside seedBudget on purpose — a group
+     switched to 'save' later on the Plan tab needs the same treatment. */
+  const p = C.periodOf(st, todayISO());
+  st.cats.forEach(c => { if (!c.since && C.kindOf(st, c) === 'save') c.since = p; });
   st.v = 2;
   return st;
 }
@@ -1617,7 +1698,10 @@ $('#gGo').addEventListener('click', async () => {
          was right, when the two boxes simply differed. */
       if (pass !== $('#gPass2').value) { err.textContent = t('passNoMatch'); return; }
       KEY = await createVault(pass);
-      S = freshState();
+      /* Through migrate, not straight from freshState: seeding the budget lines
+         and dating the tour fund live there, and a brand-new book needs them
+         exactly as much as an old one does. */
+      S = migrate(freshState());
       await saveState(KEY, S);
     } else {
       const r = await unlockVault(pass);
