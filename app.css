@@ -169,6 +169,32 @@ header.top .clock i{font-style:normal;font-size:13px;color:var(--ink-3);margin-l
 .dayhead .tot{font-family:var(--f-num);font-size:17px;color:var(--brick)}
 .dayhead .tot i{font-style:normal;color:var(--teal);font-size:13px;margin-left:6px}
 .dayhead .chev{color:var(--ink-3);font-size:12px;margin-left:8px}
+/* The grouped budget is the day card's sibling: same wrapper, same heading,
+   same right-aligned subtotal, nested rows beneath. Only three things differ —
+   the subtotal is an allocation rather than an outflow, so it is not brick; the
+   heading carries edit and delete; and a group ends with its own "add line".
+   Everything else is inherited from .daycard/.dayhead above. */
+.grphead .tot{color:var(--ink)}
+.grphead .del,.grphead .edit{color:var(--ink-3);font-size:15px;min-width:34px;min-height:34px;
+  display:inline-flex;align-items:center;justify-content:center}
+.grphead .del:hover{color:var(--brick)} .grphead .edit:hover{color:var(--ink)}
+.grpadd{margin:8px 2px 12px}
+/* Add-expense sheet: chips under their headings, and the line's remaining
+   balance. The heading is the smallest thing that can tell two lines called
+   হাতখরচ apart, so it is a label, not a section. */
+.shcats{margin-top:11px}
+.shgrp{font-size:11.5px;letter-spacing:.06em;text-transform:uppercase;color:var(--ink-3);
+  margin:11px 0 6px}
+.shcats>.shgrp:first-child{margin-top:0}
+.shleft{display:flex;justify-content:space-between;align-items:baseline;gap:10px;
+  margin-top:13px;padding:9px 11px;background:var(--teal-l);border-left:3px solid var(--teal);
+  font-size:13.5px;color:var(--ink-2)}
+.shleft b{font-size:16px;color:var(--ink)}
+.grpempty{padding:10px 4px;color:var(--ink-3);font-size:13.5px}
+/* Hidden lines. Chips already carry the right affordance — these only need to
+   read as recessed rather than pickable-and-current. */
+.hidden-chips .chip{color:var(--ink-3);border-style:dashed}
+.hidden-chips .chip:hover{color:var(--ink);border-style:solid}
 .monthsep{display:flex;justify-content:space-between;align-items:baseline;
   padding:20px 2px 6px;border-bottom:1.5px solid var(--ink);margin-bottom:2px}
 .monthsep b{font-family:var(--f-disp);font-size:13px;letter-spacing:.05em;text-transform:uppercase;color:var(--ink-3)}

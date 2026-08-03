@@ -42,10 +42,18 @@ export const groupOf = (S, id) => (S.groups || []).find(g => g.id === id);
    Those ids are user data now — 'his' or 'travel' says nothing about the money
    — so everything that used to read the old hardcoded `c.group` string reads
    this instead. Anything unresolvable counts as ordinary variable spending,
-   which is the assumption that loses the least if a group goes missing. */
+   which is the assumption that loses the least if a group goes missing.
+
+   The answer is normalised to exactly one of three strings, because the budget
+   is split three ways now and the split has to be exhaustive: varBudget +
+   fixedBudget must equal monthBudget whatever a group's `kind` field ends up
+   holding. Group kind is editable on the Plan tab, so 'Fixed', '' and a typo
+   are all reachable, and any of them leaking through would drop money out of
+   one total without it turning up in another. */
+export const KINDS = ['var', 'fixed', 'save'];
 export function kindOf(S, cat) {
-  const g = cat && groupOf(S, cat.group);
-  return (g && g.kind) || 'var';
+  const k = cat && (groupOf(S, cat.group) || {}).kind;
+  return k === 'fixed' || k === 'save' ? k : 'var';
 }
 /* Hidden lines stay in S.cats so old entries still resolve; they only leave the
    chip list and the budget sheet. */
@@ -98,18 +106,59 @@ export const spentOn = (S, date) =>
 
 /* ---------------- budget ---------------- */
 
-/* What can be spent this month. A saving envelope is deliberately left out: the
-   tour fund is money set aside, not money available, and folding it in here
-   would inflate the daily budget the Overview hero bar is drawn from. Hidden
-   lines are out too — a line you cannot pick cannot be spent against. */
+/* What can be spent this month, sliced by how the money actually behaves.
+   Hidden lines are out of all three — a line you cannot pick cannot be spent
+   against.
+
+   `save` is money set aside rather than money available: the tour fund is not
+   this month's spending, and folding it in would inflate every figure below.
+
+   `fixed` is the slice that matters most, and it is the one the app used to get
+   wrong. Rent, the loan instalment and the DPS are paid once, in a lump, on a
+   day the calendar already knows. Dividing them by the length of the month and
+   presenting the result as money you may spend today is the most misleading
+   number this app can produce, so nothing derived from a day divides them. */
 const budgetSum = (S, want) => S.cats.reduce((s, c) =>
-  s + (!c.archived && (kindOf(S, c) === 'save') === want ? Number(c.budget) || 0 : 0), 0);
-export const monthBudget = S => budgetSum(S, false);
-export const saveBudget = S => budgetSum(S, true);
-export function dailyBudget(S, p) {
+  s + (!c.archived && kindOf(S, c) === want ? Number(c.budget) || 0 : 0), 0);
+export const varBudget = S => budgetSum(S, 'var');
+export const fixedBudget = S => budgetSum(S, 'fixed');
+export const saveBudget = S => budgetSum(S, 'save');
+/* Unmoved on purpose: still everything that is not saving, so the "খরচের বাজেট"
+   total and the Overview month-to-date denominator read exactly as before. */
+export const monthBudget = S => varBudget(S) + fixedBudget(S);
+
+/* Spending restricted to variable lines — the counterpart of varBudget, and the
+   only spend figure a daily number may be compared against. */
+const isVar = (S, catId) => kindOf(S, catOf(S, catId)) === 'var';
+export const spentVarIn = (S, p) => sum(txnsIn(S, p, 'expense').filter(x => isVar(S, x.cat)));
+export const spentVarOn = (S, date) =>
+  sum(S.txns.filter(x => x.date === date && x.type === 'expense' && isVar(S, x.cat)));
+
+/* Today's allowance, burnt down rather than flat: what is left of the variable
+   budget, spread over the days still to come. Overspend in the first week and
+   the rest of the month tightens by itself, which a fixed monthly ÷ 31 can
+   never show.
+
+   `perDay` deliberately excludes what has already gone out TODAY. Include it
+   and the target shrinks as you spend against it — the hero bar would tip into
+   red at left/(daysLeft+1), which on the last day of the month means red at
+   half the money genuinely still available. The allowance is fixed for the
+   duration of the day; only `left` moves as the day goes on. */
+export function dailyAllowance(S, p, today) {
+  const budget = varBudget(S);
+  const spent = spentVarIn(S, p);
+  const spentToday = spentVarOn(S, today);
+  const daysLeft = Math.max(1, daysInPeriod(p) - dayInPeriod(S, today, p) + 1);
+  const perDay = Math.max(0, budget - (spent - spentToday)) / daysLeft;
+  return { budget, spent, spentToday, left: budget - spent, daysLeft, perDay };
+}
+
+/* The manual override in Settings replaces the day's allowance outright, and
+   nothing else: `left` and `daysLeft` still describe the real envelope, so the
+   caption under the bar cannot contradict the number above it. */
+export function dailyBudget(S, p, today) {
   if (S.settings.dailyBudget) return Number(S.settings.dailyBudget);
-  const mb = monthBudget(S);
-  return mb ? mb / daysInPeriod(p) : 0;
+  return today ? dailyAllowance(S, p, today).perDay : varBudget(S) / daysInPeriod(p);
 }
 
 /* ---------------- totals ---------------- */
@@ -231,11 +280,32 @@ export function byGroup(S, p) {
   if (loose.length) {
     const items = loose.map(id => ({ cat: catOf(S, id) || { id, bn: 'অজানা খাত', en: 'Unknown' }, v: spent[id], env: null }))
       .sort((a, b) => b.v - a.v);
-    out.push({
-      group: { id: '_loose', bn: 'অন্যান্য', en: 'Other', kind: 'var' },
-      items, total: items.reduce((s, x) => s + x.v, 0),
-    });
+    out.push({ group: LOOSE, items, total: items.reduce((s, x) => s + x.v, 0) });
   }
+  return out;
+}
+
+/* Where a line goes when its group has been deleted or was never there. Not a
+   real entry in S.groups — it exists so nothing is ever dropped from a total
+   silently, which is what the flat version used to do. */
+export const LOOSE = { id: '_loose', bn: 'অন্যান্য', en: 'Other', kind: 'var' };
+
+/* The budget as it is written on paper: every group, and the lines under it.
+   Unlike byGroup this is about allocation rather than outflow, so a line with
+   no budget and no spending still appears — that empty box is the whole point
+   of the Plan tab. Hidden lines are left out; they have their own row at the
+   foot of the tab. */
+export function budgetLines(S) {
+  const act = activeCats(S), seen = new Set(), out = [];
+  const pack = (group, lines) =>
+    ({ group, lines, total: lines.reduce((s, c) => s + (Number(c.budget) || 0), 0) });
+  for (const g of (S.groups || [])) {
+    const lines = act.filter(c => c.group === g.id);
+    lines.forEach(c => seen.add(c.id));
+    out.push(pack(g, lines));
+  }
+  const loose = act.filter(c => !seen.has(c.id));
+  if (loose.length) out.push(pack(LOOSE, loose));
   return out;
 }
 export function plannedShare(S, p) {

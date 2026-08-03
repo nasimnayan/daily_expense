@@ -127,6 +127,33 @@ const STR = {
   'liquid': ['হাতে থাকা টাকা', 'Liquid cash'],
   'planTip': ['খাতের পাশে বাজেট লিখুন। খালি রাখলে ওই খাত হিসাবের বাইরে থাকবে।',
     'Set a budget beside each category. Leave blank to leave it out of tracking.'],
+  /* Burn-down caption under the hero bar. The %  is the day count. */
+  'daysLeft': ['বাকি % দিন', '% days left'],
+  'leftInMonth': ['মাসের বাকি', 'Left this month'],
+  /* The three slices of the budget, and the totals built from them. */
+  'spendBudget': ['খরচের বাজেট', 'Spending budget'],
+  'kFixed': ['নির্দিষ্ট খরচ', 'Fixed costs'],
+  'kVar': ['দৈনিক খরচ', 'Day to day'],
+  'kSave': ['সঞ্চয়', 'Savings'],
+  'fixedNote': ['একবারে দেওয়া হয়, তাই দিন দিয়ে ভাগ হয় না।',
+    'Paid in one go, so it is never divided by the days.'],
+  /* Grouped Plan tab. */
+  'addLine': ['লাইন যোগ', 'Add line'],
+  'addGroup': ['নতুন গ্রুপ', 'New group'],
+  'groupName': ['গ্রুপ', 'Group'],
+  'nameBn': ['নাম (বাংলা)', 'Name (Bangla)'],
+  'nameEn': ['নাম (English)', 'Name (English)'],
+  'kind': ['ধরন', 'Behaves as'],
+  'hiddenLines': ['লুকানো খাত', 'Hidden lines'],
+  'hiddenHint': ['যেগুলো ব্যবহার হচ্ছে না। ছুঁলে আবার ফিরে আসবে।',
+    'Lines not in use. Tap one to bring it back.'],
+  'newLine': ['নতুন লাইন', 'New line'],
+  'moveTo': ['লাইনগুলো কোথায় যাবে', 'Move its lines to'],
+  'delGroupNote': ['গ্রুপটা মুছলে এর লাইনগুলো কোথায় যাবে বেছে নিন। কোনো লাইন মুছে যাবে না।',
+    'Choose where this group’s lines should go. No line is deleted.'],
+  'left': ['বাকি', 'Left'],
+  'groupTip': ['খাতগুলো গ্রুপে সাজানো। গ্রুপের ধরনই ঠিক করে টাকাটা দৈনিক বাজেটে আসবে কি না — নির্দিষ্ট খরচ আর সঞ্চয় আসে না।',
+    'Lines are gathered into groups. A group’s kind decides whether its money reaches the daily budget — fixed costs and savings do not.'],
   'dataInfo': ['তথ্যের পরিমাণ', 'Data size'],
   'entries': ['এন্ট্রি', 'entries'],
   'sizeWarn': ['ফাইলটা বড় হয়ে যাচ্ছে। GitHub সিঙ্কের সীমা ১ MB — কাছাকাছি গেলে পুরনো বছরের এন্ট্রি আলাদা ফাইলে সরাতে হবে। এখনই ব্যাকআপ নিয়ে রাখুন।',
@@ -340,15 +367,20 @@ function migrate(st) {
      Dhaka changes how NEW dates are derived; silently moving old entries to a
      different day would be worse than the problem it solves. */
   seedBudget(st);
-  /* A saving line with no start date has not been accruing from anywhere in
-     particular, so count it from this month. envelope() assumes the same thing
-     when the field is missing; writing it down means the answer stops moving
-     once the month turns. This sits outside seedBudget on purpose — a group
-     switched to 'save' later on the Plan tab needs the same treatment. */
-  const p = C.periodOf(st, todayISO());
-  st.cats.forEach(c => { if (!c.since && C.kindOf(st, c) === 'save') c.since = p; });
+  stampSince(st);
   st.v = 2;
   return st;
+}
+
+/* A saving line with no start date has not been accruing from anywhere in
+   particular, so count it from this month. envelope() assumes the same thing
+   when the field is missing; writing it down means the answer stops moving once
+   the month turns. Called from migrate and again whenever a group is
+   reclassified or a line moved on the Plan tab, which reaches the same state by
+   a different road. */
+function stampSince(st = S) {
+  const p = C.periodOf(st, todayISO());
+  st.cats.forEach(c => { if (!c.since && C.kindOf(st, c) === 'save') c.since = p; });
 }
 
 let S = freshState();
@@ -641,7 +673,15 @@ let openDay = null;   // which day is expanded in the history view
 
 function viewOver() {
   const today = todayISO(), p = C.periodOf(S, today);
-  const st = C.spentOn(S, today), db = C.dailyBudget(S, p), left = db - st, over = left < 0;
+  /* The hero answers one question: how is today going. So both halves of it are
+     restricted to variable money. `spentOn` counted every expense, which meant
+     that on the day the loan instalment posts the hero read "আজ খরচ ৳36,500" in
+     red with the bar pinned over — a false alarm on the one day of the month
+     nobody needs one. The instalment has not gone missing: the "এই মাস" ledger
+     below still carries it under নির্দিষ্ট বনাম পরিবর্তনশীল, which is where a lump
+     payment belongs. */
+  const al = C.dailyAllowance(S, p, today);
+  const st = al.spentToday, db = C.dailyBudget(S, p, today), left = db - st, over = left < 0;
   const mtd = C.spentIn(S, p), mb = C.monthBudget(S);
   const inc = C.earnedIn(S, p), sr = C.savingsRate(S, p);
   const nw = C.netWorth(S), rw = C.runway(S, p, today), d = C.dti(S, p);
@@ -656,7 +696,10 @@ function viewOver() {
     ${db
       ? bar(st / db * 100, over) + `<div class="barcap">
           <span>${over ? t('overToday') : t('leftToday')}: <b class="num">${fmt(Math.abs(left))}</b></span>
-          <span class="num">${fmt(db)} / ${t('perDay')}</span></div>`
+          <span class="num">${fmt(db)} / ${t('perDay')}</span></div>
+        <div class="barcap" style="margin-top:5px">
+          <span>${t('daysLeft').replace('%', bn(al.daysLeft))}</span>
+          <span>${t('leftInMonth')} <b class="num">${fmt(Math.max(0, al.left))}</b></span></div>`
       : `<div class="barcap" style="margin-top:14px"><span>${t('noBudget')}</span></div>`}
     <div class="barcap" style="margin-top:8px">
       <span>${t('mtd')}</span><span class="num">${fmt(mtd)}${mb ? ` / ${grp(mb)}` : ''}</span></div>
@@ -827,6 +870,127 @@ function viewAcct() {
   return h;
 }
 
+/* ---------------- the budget, grouped ---------------- */
+
+const KIND_T = { var: 'kVar', fixed: 'kFixed', save: 'kSave' };
+const dayCap = al =>
+  `${t('daysLeft').replace('%', bn(al.daysLeft))} · ${t('leftInMonth')} ${fmt(Math.max(0, al.left))}`;
+
+/* One budget line. The name and its box are the point; the spend, what is left
+   and the meter beneath are there so the box is not filled in blind.
+   Every figure derived from c.budget carries an id, because the budget box is
+   edited without a re-render and repaintBudget() has to find them again. */
+function budgetRow(c, p) {
+  const env = C.envelope(S, c, p);
+  const over = env.allocated > 0 && env.spent > env.allocated;
+  const pct = env.allocated ? env.spent / env.allocated * 100 : 0;
+  return `<div class="row"><div class="tick"></div>
+    <div class="lab"><label for="bg-${c.id}"><b>${esc(L(c))}</b></label>
+      <span>${t('expense')} ${fmt(env.spent)} · ${t('left')} <span id="bl-${c.id}">${fmt(env.left)}</span></span>
+      <div class="cbar" style="padding:4px 0 0;border:none">
+        <div class="track"><i id="bp-${c.id}" class="${over ? 'over' : ''}"
+          style="width:${Math.min(100, pct)}%"></i></div></div>
+    </div>
+    <div class="amt num">
+      <input class="num" id="bg-${c.id}" name="bg-${c.id}" data-budget="${c.id}" type="number"
+        inputmode="numeric" value="${c.budget ?? ''}" placeholder="—"
+        style="width:104px;text-align:right;padding:7px 9px;border:1px solid var(--rule);border-radius:8px;background:var(--card)">
+      <button class="del" data-hideline="${c.id}" aria-label="${t('del')}">×</button></div>
+  </div>`;
+}
+
+/* The budget as it is written on paper: headings, and named lines beneath them.
+   Deliberately the day-history view's sibling — same card, same heading, same
+   right-aligned subtotal — because it is the same shape of information. What is
+   new is that a heading is user data now, so it can be renamed, reclassified
+   and removed, and its `kind` is what decides whether the money underneath ever
+   reaches the daily budget.
+
+   The synthetic অন্যান্য group has no edit, delete or add-line: it is not a real
+   row in S.groups, only the net that catches a line whose group has gone. */
+function budgetSection(p) {
+  let h = `<section class="sec"><h3>${t('budget')}</h3>
+    <div class="note">${t('groupTip')}</div>`;
+
+  for (const { group: g, lines, total } of C.budgetLines(S)) {
+    const real = g.id !== C.LOOSE.id;
+    h += `<div class="daycard">
+      <div class="dayhead grphead">
+        <span><b>${esc(L(g))}</b><span class="sub">${t(KIND_T[g.kind] || 'kVar')}</span></span>
+        <span class="tot num"><span id="gt-${g.id}">${fmt(total)}</span>
+          ${real ? `<button class="edit" data-editgroup="${g.id}" aria-label="${t('edit')}">✎</button>
+          <button class="del" data-delgroup="${g.id}" aria-label="${t('del')}">×</button>` : ''}</span>
+      </div>`;
+    h += lines.length
+      ? `<div class="ledger">${lines.map(c => budgetRow(c, p)).join('')}</div>`
+      : `<div class="grpempty">${LANG ? 'No lines here yet.' : 'এখানে এখনো কোনো লাইন নেই।'}</div>`;
+    if (real) h += `<button class="btn ghost sm grpadd" data-addline="${g.id}">+ ${t('addLine')}</button>`;
+    h += `</div>`;
+  }
+  h += `<button class="btn ghost sm" data-addgroup="1" style="margin-top:12px">+ ${t('addGroup')}</button>`;
+
+  /* The four figures that matter, in the order the money moves: what the month
+     allocates, how it splits, what is set aside, and only then what today is
+     worth. The daily figure sits at the bottom because it is a consequence of
+     the three above it, not an input. */
+  const al = C.dailyAllowance(S, p, todayISO());
+  h += `<div class="ledger" style="margin-top:18px">
+    ${row(0, t('spendBudget'), '', `<span id="sum-month">${fmt(C.monthBudget(S))}</span>`)}
+    ${row(0, t('kFixed'), t('fixedNote'), `<span id="sum-fixed">${fmt(C.fixedBudget(S))}</span>`)}
+    ${row(0, t('kVar'), '', `<span id="sum-var">${fmt(C.varBudget(S))}</span>`)}
+    ${row(0, t('kSave'), '', `<span id="sum-save">${fmt(C.saveBudget(S))}</span>`)}
+    ${row(0, t('dailyBudget'), `<span id="sum-daycap">${dayCap(al)}</span>`,
+      `<span id="sum-day">${fmt(C.dailyBudget(S, p, todayISO()))}</span>`)}
+  </div>`;
+
+  /* Hidden lines, at the foot rather than gone. seedBudget marks the stock
+     categories nobody used, which is what keeps 13 empty boxes off the tab —
+     but nothing was reading `archived`, so they were all still drawn. */
+  const hidden = S.cats.filter(c => c.archived);
+  if (hidden.length) {
+    h += `<div class="ledger" style="margin-top:20px">
+        <div class="row head">${t('hiddenLines')}</div></div>
+      <div class="note">${t('hiddenHint')}</div>
+      <div class="chips hidden-chips" style="margin-top:9px">` +
+      hidden.map(c => `<button class="chip" data-unhide="${c.id}">${esc(L(c))}</button>`).join('') +
+      `</div>`;
+  }
+  return h + `</section>`;
+}
+
+/* Typing in a budget box must not re-render — that would take the caret with
+   it. So the handful of figures that depend on c.budget are found by id and
+   rewritten in place instead. Everything the input event can invalidate is
+   listed here; anything added to budgetSection that reads a budget has to be
+   added here too, or it will sit on screen quietly wrong.
+
+   The prefixes are kept apart on purpose. Group ids are user data and three of
+   the seeded ones are literally 'fixed', 'var' and 'save' — with a shared
+   prefix, the summary rows and those three group subtotals would answer to the
+   same id, and getElementById would hand back whichever came first in the
+   document. It did: the three-way split read ৳0 under a month of ৳23,500. */
+function repaintBudget() {
+  const today = todayISO(), p = C.periodOf(S, today);
+  const set = (id, txt) => { const e = document.getElementById(id); if (e) e.textContent = txt; };
+  for (const { group: g, lines, total } of C.budgetLines(S)) {
+    set('gt-' + g.id, fmt(total));
+    for (const c of lines) {
+      const env = C.envelope(S, c, p);
+      set('bl-' + c.id, fmt(env.left));
+      const i = document.getElementById('bp-' + c.id);
+      if (!i) continue;
+      i.style.width = Math.min(100, env.allocated ? env.spent / env.allocated * 100 : 0) + '%';
+      i.classList.toggle('over', env.allocated > 0 && env.spent > env.allocated);
+    }
+  }
+  set('sum-month', fmt(C.monthBudget(S)));
+  set('sum-fixed', fmt(C.fixedBudget(S)));
+  set('sum-var', fmt(C.varBudget(S)));
+  set('sum-save', fmt(C.saveBudget(S)));
+  set('sum-day', fmt(C.dailyBudget(S, p, today)));
+  set('sum-daycap', dayCap(C.dailyAllowance(S, p, today)));
+}
+
 function viewPlan() {
   const today = todayISO(), p = C.periodOf(S, today);
 
@@ -856,17 +1020,7 @@ function viewPlan() {
         <option value="monthly">${LANG ? 'Every month' : 'প্রতি মাসে'}</option></select></div>
     </div><button class="btn ghost sm" id="nAdd" style="margin-top:10px">${t('add')}</button></section>`;
 
-  /* budget */
-  h += `<section class="sec"><h3>${t('budget')}</h3><div class="note">${t('planTip')}</div>
-    <div class="ledger" style="margin-top:10px">` +
-    S.cats.map(c => `<div class="row"><div class="tick"></div>
-      <div class="lab"><label for="bg-${c.id}"><b>${esc(L(c))}</b></label></div>
-      <div class="amt num"><input class="num" id="bg-${c.id}" name="bg-${c.id}" data-budget="${c.id}" type="number"
-        inputmode="numeric" value="${c.budget ?? ''}" placeholder="—"
-        style="width:110px;text-align:right;padding:7px 9px;border:1px solid var(--rule);border-radius:8px;background:var(--card)"></div>
-    </div>`).join('') +
-    row(0, t('monthly'), '', fmt(C.monthBudget(S))) +
-    row(0, t('dailyBudget'), '', fmt(C.dailyBudget(S, p))) + `</div></section>`;
+  h += budgetSection(p);
 
   /* goals */
   h += `<section class="sec"><h3>${t('goals')}</h3><div class="ledger">`;
@@ -901,7 +1055,7 @@ function viewPlan() {
   h += `</div><div class="grid2" style="margin-top:12px">
       <div><label class="fl" for="rName">${t('name')}</label><input class="inp w" id="rName" name="rName"></div>
       <div><label class="fl" for="rAmt">${t('amount')}</label><input class="inp w num" id="rAmt" name="rAmt" type="number" inputmode="numeric"></div>
-      <div><label class="fl" for="rCat">${t('category')}</label><select class="inp w" id="rCat" name="rCat">${S.cats.map(c => `<option value="${c.id}">${esc(L(c))}</option>`).join('')}</select></div>
+      <div><label class="fl" for="rCat">${t('category')}</label><select class="inp w" id="rCat" name="rCat">${C.activeCats(S).map(c => `<option value="${c.id}">${esc(L(c))}</option>`).join('')}</select></div>
       <div><label class="fl" for="rDay">${t('dueDay')}</label><input class="inp w num" id="rDay" name="rDay" type="number" min="1" max="28" value="1"></div>
       <div><label class="fl" for="rAcct">${t('account')}</label>${acctSelect('rAcct', S.accts[0] && S.accts[0].id)}</div>
     </div><button class="btn ghost sm" id="rAdd" style="margin-top:10px">${t('add')}</button></section>`;
@@ -1080,6 +1234,27 @@ const FORMS = {
       { k: 'acct', lab: 'account', type: 'acct' },
     ],
   },
+  /* Both halves of the budget are ordinary records now, so both are edited
+     through the same sheet as everything else. Names are kept in two languages
+     because the rest of the state is, and a line typed in one language would
+     otherwise disappear when the other is switched on. */
+  grp: {
+    title: 'addGroup', list: () => S.groups,
+    fields: [
+      { k: 'bn', lab: 'nameBn', type: 'text', req: true },
+      { k: 'en', lab: 'nameEn', type: 'text' },
+      { k: 'kind', lab: 'kind', type: 'kind' },
+    ],
+  },
+  line: {
+    title: 'newLine', list: () => S.cats,
+    fields: [
+      { k: 'bn', lab: 'nameBn', type: 'text', req: true },
+      { k: 'en', lab: 'nameEn', type: 'text' },
+      { k: 'group', lab: 'groupName', type: 'grp' },
+      { k: 'budget', lab: 'budget', type: 'num', blank: true },
+    ],
+  },
 };
 
 const findRec = (kind, id) => (FORMS[kind] ? FORMS[kind].list().find(x => x.id === id) : null);
@@ -1093,7 +1268,9 @@ function editField(f, rec) {
   if (f.type === 'num') input = `<input class="inp w num" id="${id}" name="${id}" type="number" inputmode="decimal" value="${v ?? ''}">`;
   else if (f.type === 'date') input = `<input class="inp w" id="${id}" name="${id}" type="date" value="${v || ''}">`;
   else if (f.type === 'month') input = `<input class="inp w" id="${id}" name="${id}" type="month" value="${v || ''}">`;
-  else if (f.type === 'cat') input = sel(S.cats.map(c => ({ v: c.id, t: L(c) })), v);
+  else if (f.type === 'cat') input = sel(C.activeCats(S).map(c => ({ v: c.id, t: L(c) })), v);
+  else if (f.type === 'grp') input = sel(S.groups.map(g => ({ v: g.id, t: L(g) })), v);
+  else if (f.type === 'kind') input = sel(C.KINDS.map(k => ({ v: k, t: t(KIND_T[k]) })), v || 'var');
   else if (f.type === 'acct') input = sel(S.accts.map(a => ({ v: a.id, t: L(a) })), v);
   else if (f.type === 'dir') input = sel([{ v: 'gave', t: t('gave') }, { v: 'took', t: t('took') }], v);
   else if (f.type === 'rep') input = sel([{ v: '', t: t('oneTime') }, { v: 'monthly', t: t('remMonthly') }], v || '');
@@ -1112,15 +1289,77 @@ function doEdit() {
     if (!el) continue;
     const raw = el.value;
     if (fd.req && !String(raw).trim()) return toast(t('enterAmount'));
-    next[fd.k] = fd.type === 'num' ? (Number(raw) || 0) : raw;
+    /* `blank` distinguishes "nothing set" from zero. A budget box left empty
+       means the line is not tracked, which is not the same as a budget of ৳0 —
+       and 0 would draw a full red meter over a line nobody budgeted. */
+    next[fd.k] = fd.type === 'num'
+      ? (fd.blank && !String(raw).trim() ? null : Number(raw) || 0)
+      : raw;
   }
   Object.assign(rec, next);
+  /* Editing a group's kind, or moving a line into a saving group, turns an
+     ordinary line into an accruing one — which needs a month to accrue from. */
+  stampSince();
   closeSheet();
   toast(t('saved!'));
   change();
 }
 
 let SH = null;
+
+/* The chips, under the headings the budget is written with. Flat, they were 26
+   pills over eight rows with two of them both reading হাতখরচ and nothing to
+   choose between them; the heading is what tells them apart. Hidden lines are
+   left out — that is the whole point of hiding one — but a group with nothing
+   pickable in it is dropped too, rather than left as an empty heading. */
+function sheetCats() {
+  const act = C.activeCats(S), seen = new Set();
+  const block = (g, lines) => {
+    lines.forEach(c => seen.add(c.id));
+    if (!lines.length) return '';
+    return `<div class="shgrp">${esc(L(g))}</div><div class="chips">` + lines
+      .map(c => `<button class="chip ${SH.cat === c.id ? 'on' : ''}" data-shcat="${c.id}">${esc(L(c))}</button>`)
+      .join('') + `</div>`;
+  };
+  let h = (S.groups || []).map(g => block(g, act.filter(c => c.group === g.id))).join('');
+  h += block(C.LOOSE, act.filter(c => !seen.has(c.id)));
+  return `<div class="shcats">${h}</div>`;
+}
+
+/* What is left on the line you picked, and what will be left once this entry
+   lands. Rendered once; from then on paintSheetLeft rewrites a single text node
+   as the amount is typed. Rebuilding the sheet per keystroke — which is what
+   reopenSheet does on a chip tap — would take the caret and the keyboard with
+   it every character. */
+function sheetLeftPanel() {
+  const c = SH.cat && C.catOf(S, SH.cat);
+  if (!c) return '';
+  return `<div class="shleft"><span>${esc(L(c))} · ${t('left')}</span>
+    <b class="num" id="shLeft">${sheetLeftText()}</b></div>`;
+}
+
+function sheetLeftText() {
+  const c = SH && SH.cat && C.catOf(S, SH.cat);
+  if (!c) return '';
+  const p = C.periodOf(S, (SH.txn && SH.txn.date) || todayISO());
+  const env = C.envelope(S, c, p);
+  if (!env.allocated) return t('noBudget');
+  /* An entry being edited is already counted in `spent`, so only the difference
+     moves the figure — otherwise reopening a ৳500 entry would show ৳500 leaving
+     twice. SH.was holds the amount as stored, captured once when the sheet
+     opened: reopenSheet overwrites SH.txn.amount with whatever is in the box on
+     every chip tap, so that field cannot be the baseline.
+     On a rebuild the old #shAmt is still in the document and holds the current
+     text; on a first open there is none, and nothing has been typed yet. */
+  const el = $('#shAmt'), was = Number(SH.was) || 0;
+  const now = el ? Number(el.value) || 0 : was;
+  return fmt(env.left - (now - was));
+}
+
+function paintSheetLeft() {
+  const e = $('#shLeft');
+  if (e) e.textContent = sheetLeftText();
+}
 
 function openSheet(mode, payload, reuse) {
   const today = todayISO();
@@ -1133,6 +1372,7 @@ function openSheet(mode, payload, reuse) {
     SH.type = x.type || 'expense';
     SH.cat = x.cat || null; SH.src = x.src || null;
     SH.planned = x.planned !== false;
+    if (SH.was === undefined) SH.was = isNew ? 0 : Number(x.amount) || 0;
     /* Amount first, and the sixteen category chips after it.
        The other way round put the one field you opened this sheet to fill below
        the fold on a phone: the chips are 16 pills over five rows, so on a
@@ -1148,11 +1388,11 @@ function openSheet(mode, payload, reuse) {
         <button data-shtype="expense" class="${SH.type === 'expense' ? 'on' : ''}">${t('expense')}</button>
         <button data-shtype="income" class="${SH.type === 'income' ? 'on' : ''}">${t('income')}</button>
       </div>
-      <div class="chips" style="margin-top:11px">` +
-      (SH.type === 'expense'
-        ? S.cats.map(c => `<button class="chip ${SH.cat === c.id ? 'on' : ''}" data-shcat="${c.id}">${esc(L(c))}</button>`).join('')
-        : S.srcs.map(s => `<button class="chip ${SH.src === s.id ? 'on' : ''}" data-shsrc="${s.id}">${esc(L(s))}</button>`).join('')) +
-      `</div>
+      ${SH.type === 'expense'
+        ? sheetCats() + sheetLeftPanel()
+        : `<div class="chips" style="margin-top:11px">` + S.srcs
+          .map(s => `<button class="chip ${SH.src === s.id ? 'on' : ''}" data-shsrc="${s.id}">${esc(L(s))}</button>`)
+          .join('') + `</div>`}
       <label class="fl" for="shNote">${t('note')}</label>
       <input class="inp w" id="shNote" name="shNote" value="${esc(x.note || '')}">
       <div class="grid2">
@@ -1196,8 +1436,24 @@ function openSheet(mode, payload, reuse) {
       <button class="btn wide" id="shEdit" style="margin-top:16px">${t('save')}</button>`;
   }
 
+  /* Deleting a heading must never delete the money underneath it, so this asks
+     where the lines go first. With no other group left they fall through to the
+     synthetic অন্যান্য group, which is the same safety net byGroup uses. */
+  if (mode === 'delgroup') {
+    const g = C.groupOf(S, SH.id);
+    if (!g) { closeSheet(); return; }
+    const others = S.groups.filter(x => x.id !== g.id);
+    body = `<div class="note">${t('delGroupNote')}</div>
+      ${others.length ? `<label class="fl" for="shMove">${t('moveTo')}</label>
+        <select class="inp w" id="shMove" name="shMove">${others
+          .map(x => `<option value="${x.id}">${esc(L(x))}</option>`).join('')}</select>`
+        : `<div class="warn">${esc(L(C.LOOSE))}</div>`}
+      <button class="btn wide danger" id="shDelGroup" style="margin-top:16px">${t('del')}</button>`;
+  }
+
   const title = mode === 'pay' ? t('payTitle')
     : mode === 'repay' ? t('repayTitle')
+    : mode === 'delgroup' ? `${t('del')} — ${L(C.groupOf(S, SH.id) || C.LOOSE)}`
     : mode === 'edit' ? `${t('editRow')} — ${t(FORMS[SH.kind].title)}`
     : (SH.txn && SH.txn.id ? t('editEntry') : t('addExpense'));
   const sh = $('#sheet');
@@ -1363,6 +1619,21 @@ function doRepay() {
   change();
 }
 
+/* Removes a heading and keeps every line under it. The lines move to the group
+   picked in the sheet, or — if this was the last group — to nothing at all,
+   which budgetLines and byGroup both collect under অন্যান্য rather than drop. */
+function doDelGroup() {
+  const g = C.groupOf(S, SH.id);
+  if (!g) return closeSheet();
+  const to = $('#shMove') ? val('shMove') : null;
+  S.cats.forEach(c => { if (c.group === g.id) c.group = to || null; });
+  S.groups = S.groups.filter(x => x.id !== g.id);
+  stampSince();
+  closeSheet();
+  toast(t('saved!'));
+  change();
+}
+
 document.addEventListener('click', async e => {
   const b = e.target.closest('button');
   if (!b) return;
@@ -1380,7 +1651,26 @@ document.addEventListener('click', async e => {
   if (b.id === 'shPay') return doPay();
   if (b.id === 'shRepay') return doRepay();
   if (b.id === 'shEdit') return doEdit();
+  if (b.id === 'shDelGroup') return doDelGroup();
   if (d.edit) { const [kind, id] = d.edit.split(':'); openSheet('edit', { kind, id }); return; }
+
+  /* budget: groups and lines */
+  if (d.addline) {
+    const c = { id: uid(), bn: t('newLine'), en: 'New line', group: d.addline, budget: null };
+    S.cats.push(c); stampSince(); change();
+    return openSheet('edit', { kind: 'line', id: c.id });
+  }
+  if (d.addgroup) {
+    const g = { id: uid(), bn: t('addGroup'), en: 'New group', kind: 'var' };
+    S.groups.push(g); change();
+    return openSheet('edit', { kind: 'grp', id: g.id });
+  }
+  if (d.editgroup) return openSheet('edit', { kind: 'grp', id: d.editgroup });
+  if (d.delgroup) return openSheet('delgroup', { id: d.delgroup });
+  /* Hiding is not deleting: the line stays in S.cats so old entries still
+     resolve through catOf, and the chip at the foot of the tab brings it back. */
+  if (d.hideline) { const c = C.catOf(S, d.hideline); if (c) c.archived = true; return change(); }
+  if (d.unhide) { const c = C.catOf(S, d.unhide); if (c) delete c.archived; return change(); }
 
   if (d.tab) { TAB = d.tab; render(); window.scrollTo(0, 0); return; }
   if (d.day) { openDay = openDay === d.day ? null : d.day; return render(); }
@@ -1524,6 +1814,24 @@ document.addEventListener('click', async e => {
       : 'এই ডিভাইসের সব তথ্য মুছে যাবে। ব্যাকআপ আর সিঙ্ক করা কপি থাকবে।')) return;
     wipeLocal(); location.reload(); return;
   }
+});
+
+/* Typing, as opposed to committing. `change` on a number input fires on blur or
+   Enter, which would leave a group subtotal sitting directly above the line
+   being edited showing the old figure for as long as someone kept typing. So
+   the budget box is read here instead, on every keystroke, and the few nodes
+   that depend on it are rewritten in place. No render() on this path: it would
+   rebuild the input and take the caret with it. queueSave is debounced, so a
+   burst of keystrokes still costs one write. */
+document.addEventListener('input', e => {
+  const d = e.target.dataset || {};
+  if (d.budget) {
+    const c = C.catOf(S, d.budget);
+    if (c) c.budget = e.target.value === '' ? null : Number(e.target.value);
+    repaintBudget();
+    return queueSave();
+  }
+  if (e.target.id === 'shAmt') return paintSheetLeft();
 });
 
 document.addEventListener('change', async e => {
