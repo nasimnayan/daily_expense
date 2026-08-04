@@ -788,7 +788,8 @@ function viewAcct() {
       <div class="lab"><b>${esc(d.bank)}</b><span>${t('paidCount')} ${bn(paid)}/${bn(d.tenure)} ·
         ${t('maturity')} ${fmt(C.dpsMaturity(d))} ·
         ${due ? `<span class="pill due">${due}</span>` : `<span class="pill ok">${LANG ? 'up to date' : 'হালনাগাদ'}</span>`}</span></div>
-      <div class="amt num">${fmt(d.inst)}
+      <div class="amt num">${fmt(d.inst)}</div>
+      <div class="acts">
         ${due ? `<button class="btn sm mg" data-dpspay="${d.id}">${t('markPaid')}</button>` : ''}
         <button class="edit" data-edit="dps:${d.id}" aria-label="${t('editRow')}">✎</button>
         <button class="del" data-deldps="${d.id}" aria-label="${t('del')}">×</button></div></div>`;
@@ -810,7 +811,8 @@ function viewAcct() {
       <div class="lab"><b>${esc(l.lender)}</b><span>${t('outstanding')} ${fmt(l.out)} ·
         ${t('payoff')} ${ml === Infinity ? '∞' : bn(ml) + ' ' + t('months')} ·
         ${t('interestThisMonth')} ${fmt(C.loanInterest(l))}</span></div>
-      <div class="amt num">${fmt(l.emi)}
+      <div class="amt num">${fmt(l.emi)}</div>
+      <div class="acts">
         <button class="btn sm mg" data-loanpay="${l.id}">${t('markPaid')}</button>
         <button class="edit" data-edit="loan:${l.id}" aria-label="${t('editRow')}">✎</button>
         <button class="del" data-delloan="${l.id}" aria-label="${t('del')}">×</button></div></div>`;
@@ -835,7 +837,8 @@ function viewAcct() {
     return `<div class="row"><div class="tick">${open ? '' : '✓'}</div>
       <div class="lab"><b>${esc(l.person)}</b><span>${sub}</span>
         ${paid ? `<span class="part">${LANG ? `${fmt(paid)} of ${fmt(l.amount)} back` : `${fmt(l.amount)} এর মধ্যে ${fmt(paid)} শোধ`}</span>` : ''}</div>
-      <div class="amt num ${l.dir === 'gave' ? 'in' : 'out'}">${fmt(paid ? left : l.amount)}
+      <div class="amt num ${l.dir === 'gave' ? 'in' : 'out'}">${fmt(paid ? left : l.amount)}</div>
+      <div class="acts">
         ${open ? `<button class="btn sm ghost" data-lendrepay="${l.id}">${t('repay')}</button>
         <button class="btn sm ghost" data-settle="${l.id}">${t('settle')}</button>` : ''}
         <button class="edit" data-edit="lend:${l.id}" aria-label="${t('editRow')}">✎</button>
@@ -1005,7 +1008,8 @@ function viewPlan() {
       <div class="lab"><b>${esc(r.title)}</b><span>${dateMid(due)}
         ${left >= 0 && !settled ? `· <span class="pill${left <= 3 ? ' due' : ''}">${dueLabel(left)}</span>` : ''}
         ${r.repeat === 'monthly' ? `· ${t('remMonthly')}` : ''}</span></div>
-      <div class="amt num">${fmt(r.amount)}
+      <div class="amt num">${fmt(r.amount)}</div>
+      <div class="acts">
         ${settled ? '' : `<button class="btn sm ghost" data-remdone="${r.id}">${t('remDone')}</button>`}
         <button class="edit" data-edit="rem:${r.id}" aria-label="${t('editRow')}">✎</button>
         <button class="del" data-delrem="${r.id}" aria-label="${t('del')}">×</button></div></div>`;
@@ -1360,10 +1364,23 @@ function paintSheetLeft() {
   if (e) e.textContent = sheetLeftText();
 }
 
+/* The sheet is built in three parts, not one.
+
+   As one block it was 1081px of content in a 613px box on a 412x780 phone: you
+   had to scroll it to reach a category — which is required, so every single
+   entry meant scrolling — and scrolling carried the amount box off the top of
+   the screen, so you could no longer see the figure you were filing. The sticky
+   save button made it worse by sitting permanently over the last category group.
+
+   `top` is pinned and never scrolls: the amount, the quick chips and the
+   expense/income toggle. `body` is the only part that scrolls. `foot` is the
+   primary button, laid out after the scroll region rather than stuck on top of
+   it, so nothing is ever hidden behind it. Only the entry sheet needs a pinned
+   top; the other four modes are short and leave it empty. */
 function openSheet(mode, payload, reuse) {
   const today = todayISO();
   SH = { mode, ...payload };
-  let body = '';
+  let top = '', body = '', foot = '';
 
   if (mode === 'txn') {
     const x = SH.txn;
@@ -1372,22 +1389,26 @@ function openSheet(mode, payload, reuse) {
     SH.cat = x.cat || null; SH.src = x.src || null;
     SH.planned = x.planned !== false;
     if (SH.was === undefined) SH.was = isNew ? 0 : Number(x.amount) || 0;
-    /* Amount first, and the sixteen category chips after it.
+    /* Amount first, and the category chips after it.
        The other way round put the one field you opened this sheet to fill below
-       the fold on a phone: the chips are 16 pills over five rows, so on a
+       the fold on a phone: the chips are pills over five rows, so on a
        412x780 Pixel 6 the amount box started 700px down. The keyboard is
-       already up on the focused field, so the common entry is now type-then-save
+       already up on the focused field, so the common entry is type-then-save
        without scrolling, and picking a category is the deliberate extra step
-       rather than the unavoidable first one. */
-    body = `<label class="fl" for="shAmt">${t('amount')}</label>
+       rather than the unavoidable first one.
+
+       These three are the pinned part. They stay on screen while the categories
+       scroll, so the figure you are filing is still readable at the moment you
+       choose the line it goes on. */
+    top = `<label class="fl" for="shAmt">${t('amount')}</label>
       <input class="inp w num big" id="shAmt" name="shAmt" type="number" inputmode="decimal" min="0" value="${x.amount || ''}">
       <div class="chips" style="margin-top:9px">` +
       [50, 100, 200, 500, 1000].map(v => `<button class="chip mg" data-shquick="${v}">${grp(v)}</button>`).join('') + `</div>
       <div class="togg" style="margin-top:14px">
         <button data-shtype="expense" class="${SH.type === 'expense' ? 'on' : ''}">${t('expense')}</button>
         <button data-shtype="income" class="${SH.type === 'income' ? 'on' : ''}">${t('income')}</button>
-      </div>
-      ${SH.type === 'expense'
+      </div>`;
+    body = `${SH.type === 'expense'
         ? sheetCats() + sheetLeftPanel()
         : `<div class="chips" style="margin-top:11px">` + S.srcs
           .map(s => `<button class="chip ${SH.src === s.id ? 'on' : ''}" data-shsrc="${s.id}">${esc(L(s))}</button>`)
@@ -1400,16 +1421,16 @@ function openSheet(mode, payload, reuse) {
           <input class="inp w" id="shDate" name="shDate" type="date" value="${x.date || today}"${isNew ? ' readonly' : ''}></div>
       </div>
       ${SH.type === 'expense' ? `<div class="chips" style="margin-top:12px">
-        <button class="chip ${SH.planned ? 'on' : ''}" id="shPlanned">✓ ${t('planned')}</button></div>` : ''}
-      <button class="btn wide" id="shSave" style="margin-top:16px">${t('save')}</button>`;
+        <button class="chip ${SH.planned ? 'on' : ''}" id="shPlanned">✓ ${t('planned')}</button></div>` : ''}`;
+    foot = `<button class="btn wide" id="shSave">${t('save')}</button>`;
   }
 
   if (mode === 'pay') {
     body = `<div class="note">${esc(SH.label)}</div>
       <label class="fl" for="shAmt">${t('amount')}</label>
       <input class="inp w num" id="shAmt" name="shAmt" type="number" inputmode="numeric" value="${SH.amount}">
-      <label class="fl" for="shAcct">${t('account')}</label>${acctSelect('shAcct', S.accts[0] && S.accts[0].id)}
-      <button class="btn wide mg" id="shPay" style="margin-top:16px">${t('markPaid')}</button>`;
+      <label class="fl" for="shAcct">${t('account')}</label>${acctSelect('shAcct', S.accts[0] && S.accts[0].id)}`;
+    foot = `<button class="btn wide mg" id="shPay">${t('markPaid')}</button>`;
   }
 
   /* Part-repayment on a lend row. The amount defaults to everything still
@@ -1424,15 +1445,15 @@ function openSheet(mode, payload, reuse) {
       <label class="fl" for="shAmt">${t('amount')}</label>
       <input class="inp w num" id="shAmt" name="shAmt" type="number" inputmode="numeric" min="0" max="${left}" value="${left}">
       <label class="fl" for="shDate">${t('date')}</label>
-      <input class="inp w" id="shDate" name="shDate" type="date" value="${today}">
-      <button class="btn wide mg" id="shRepay" style="margin-top:16px">${t('add')}</button>`;
+      <input class="inp w" id="shDate" name="shDate" type="date" value="${today}">`;
+    foot = `<button class="btn wide mg" id="shRepay">${t('add')}</button>`;
   }
 
   if (mode === 'edit') {
     const f = FORMS[SH.kind], rec = findRec(SH.kind, SH.id);
     if (!f || !rec) { closeSheet(); return; }
-    body = `<div class="grid2">${f.fields.map(fd => editField(fd, rec)).join('')}</div>
-      <button class="btn wide" id="shEdit" style="margin-top:16px">${t('save')}</button>`;
+    body = `<div class="grid2">${f.fields.map(fd => editField(fd, rec)).join('')}</div>`;
+    foot = `<button class="btn wide" id="shEdit">${t('save')}</button>`;
   }
 
   /* Deleting a heading must never delete the money underneath it, so this asks
@@ -1446,8 +1467,8 @@ function openSheet(mode, payload, reuse) {
       ${others.length ? `<label class="fl" for="shMove">${t('moveTo')}</label>
         <select class="inp w" id="shMove" name="shMove">${others
           .map(x => `<option value="${x.id}">${esc(L(x))}</option>`).join('')}</select>`
-        : `<div class="warn">${esc(L(C.LOOSE))}</div>`}
-      <button class="btn wide danger" id="shDelGroup" style="margin-top:16px">${t('del')}</button>`;
+        : `<div class="warn">${esc(L(C.LOOSE))}</div>`}`;
+    foot = `<button class="btn wide danger" id="shDelGroup">${t('del')}</button>`;
   }
 
   const title = mode === 'pay' ? t('payTitle')
@@ -1468,7 +1489,9 @@ function openSheet(mode, payload, reuse) {
   sh.innerHTML = `<div class="box">
     <div class="grab" aria-hidden="true"></div>
     <div class="head"><h3 id="sheetTitle">${title}</h3><button class="x" id="shClose" aria-label="${LANG ? 'Close' : 'বন্ধ'}">×</button></div>
-    ${body}</div>`;
+    ${top ? `<div class="shtop">${top}</div>` : ''}
+    <div class="shbody">${body}</div>
+    ${foot}</div>`;
   if (!reuse) setTimeout(() => sh.classList.remove('enter'), 300);
   const a = $('#shAmt'); if (a) a.focus();
 }

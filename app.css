@@ -228,6 +228,12 @@ header.top .clock i{font-style:normal;font-size:13px;color:var(--ink-3);margin-l
    keep the digits from shifting as they are typed. */
 .inp.num.big{font-size:30px;font-weight:500;padding:10px 14px;min-height:58px;
   font-family:var(--f-num);font-variant-numeric:tabular-nums;letter-spacing:-.02em}
+/* Chrome's spin buttons: two arrows nobody has ever tapped on a phone, sitting
+   inside the amount box and taking width off the figure. inputmode already asks
+   for the numeric keypad, so the field loses nothing by dropping them. */
+input[type=number]{appearance:textfield;-moz-appearance:textfield}
+input[type=number]::-webkit-inner-spin-button,
+input[type=number]::-webkit-outer-spin-button{-webkit-appearance:none;appearance:none;margin:0}
 .btn{
   padding:12px 20px;border-radius:var(--r);background:var(--ink);color:var(--paper);
   font-weight:500;font-size:15px;border:1px solid var(--ink);min-height:var(--tap);
@@ -341,20 +347,25 @@ nav button.on{color:var(--ink);border-top-color:var(--marigold)}
    718px box, putting the save button 97px below the fold, in a sheet that gave
    no hint it scrolled. dvh tracks the viewport that actually exists, and with
    interactive-widget=resizes-content it shrinks for the keyboard too. */
+/* A column, so only one band of it scrolls.
+   The handle, the title, the pinned amount and the primary button are all
+   flex:none; .shbody takes whatever height is left and is the sole scroller.
+   The button being laid out after that band — rather than stuck on top of it —
+   is what stops it covering the last category group, which sticky positioning
+   did on every phone-height sheet. */
 #sheet .box{
   width:100%;max-width:620px;background:var(--paper);border-top:1.5px solid var(--ink);
-  border-radius:16px 16px 0 0;padding:8px 16px calc(20px + var(--safeb));
-  max-height:92dvh;overflow:auto;overscroll-behavior:contain;
+  border-radius:16px 16px 0 0;padding:8px 16px calc(14px + var(--safeb));
+  max-height:92dvh;overflow:hidden;display:flex;flex-direction:column;
 }
 #sheet .grab{width:38px;height:4px;background:var(--rule);border-radius:2px;margin:6px auto 12px}
-/* Title and close button stay put while the categories scroll past. */
 #sheet .head{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;
-  position:sticky;top:0;z-index:2;background:var(--paper);padding-bottom:6px}
-/* Belt and braces for the same problem: even if the content is taller than the
-   sheet, the primary action never leaves the screen. The skirt is painted in
-   paper so rows scrolling underneath do not show through the gap. */
-#sheet .box>.btn.wide{position:sticky;bottom:0;z-index:2;
-  box-shadow:0 10px 0 10px var(--paper)}
+  background:var(--paper);padding-bottom:6px}
+#sheet .grab,#sheet .head,#sheet .shtop,#sheet .box>.btn.wide{flex:none}
+/* min-height:0 or the flex item refuses to shrink below its content and the
+   whole column overflows the box again, which is the default it is here to undo. */
+#sheet .shbody{flex:1 1 auto;min-height:0;overflow:auto;overscroll-behavior:contain}
+#sheet .box>.btn.wide{margin-top:14px}
 #sheet .head h3{font-family:var(--f-disp);font-size:18px;font-weight:600}
 #sheet .x{font-size:22px;color:var(--ink-3);min-width:var(--tap);min-height:var(--tap)}
 @media(min-width:700px){
@@ -435,7 +446,11 @@ nav button:active .ic{transform:scale(.9)}
    this, dragging the backdrop scrolls the ledger behind the open sheet. Better
    than locking body overflow, which would lose your place in the day history. */
 #sheet{touch-action:none}
-#sheet .box{touch-action:pan-y}
+/* pan-y goes on whatever actually scrolls, which is .shbody now that .box is a
+   clipped flex column. A touch-action on an ancestor above the element that
+   implements the gesture does not restrict it, so #sheet:none still keeps a drag
+   on the backdrop off the ledger behind. */
+#sheet .box,#sheet .shbody{touch-action:pan-y}
 #sheet .grab,#sheet .head{touch-action:none}
 /* The 38x4 pill is the visible affordance; the grabbable area is a real target. */
 #sheet .grab{
@@ -447,8 +462,8 @@ nav button:active .ic{transform:scale(.9)}
 
 /* Scrollbars are desktop furniture. The app still scrolls; it just does not
    advertise it. */
-#view,#sheet .box{scrollbar-width:none}
-#view::-webkit-scrollbar,#sheet .box::-webkit-scrollbar{display:none}
+#view,#sheet .shbody{scrollbar-width:none}
+#view::-webkit-scrollbar,#sheet .shbody::-webkit-scrollbar{display:none}
 
 /* The clock reflows every second. Reserving the digits' width stops the header
    jittering as the numerals change. */
@@ -462,6 +477,29 @@ header.top .clock{font-variant-numeric:tabular-nums}
    category name or an unbroken sync error push the page sideways. */
 .row .lab,.up-row .w,.cbar .t,.kpi{min-width:0}
 .note code{overflow-wrap:anywhere}
+
+/* Rows whose actions are labelled buttons — pay this instalment, settle this
+   debt — keep them in .acts, a sibling of the figure rather than inside it.
+
+   Inside it, the amount column asked for about 330px of min-content: the figure
+   plus two labelled buttons plus ✎ and ×. The column is sized `auto`, so it took
+   all of that, and .lab has min-width:0 directly above, so 1fr was free to
+   collapse — it collapsed to 47px on a phone and the person's name and note came
+   out one word per line under an amount that overflowed on top of them.
+
+   Split out, the figure alone leaves the label the width it had all along, and
+   the buttons drop to a line of their own beneath it on a phone. Rows whose
+   amount column is a figure, a balance box or the ✎/× pair alone never needed
+   this — they measured 259px and 207px of label — and are left as they were. */
+.row .acts{display:flex;align-items:center;justify-content:flex-end;gap:3px;flex-wrap:wrap}
+@media (max-width:699px){
+  .row:has(.acts){gap:7px 10px}
+  .row:has(.acts) .acts{grid-column:2/-1}
+}
+/* Wide enough for all four on one line, which is where they read best. */
+@media (min-width:700px){
+  .row:has(.acts){grid-template-columns:14px 1fr auto auto}
+}
 
 /* ---------- Khata Ledger System: tonal layering ----------
 
