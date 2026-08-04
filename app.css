@@ -356,15 +356,24 @@ nav button.on{color:var(--ink);border-top-color:var(--marigold)}
 #sheet .box{
   width:100%;max-width:620px;background:var(--paper);border-top:1.5px solid var(--ink);
   border-radius:16px 16px 0 0;padding:8px 16px calc(14px + var(--safeb));
-  max-height:92dvh;overflow:hidden;display:flex;flex-direction:column;
+  max-height:92dvh;overflow:auto;display:flex;flex-direction:column;
 }
 #sheet .grab{width:38px;height:4px;background:var(--rule);border-radius:2px;margin:6px auto 12px}
 #sheet .head{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;
   background:var(--paper);padding-bottom:6px}
 #sheet .grab,#sheet .head,#sheet .shtop,#sheet .box>.btn.wide{flex:none}
-/* min-height:0 or the flex item refuses to shrink below its content and the
-   whole column overflows the box again, which is the default it is here to undo. */
-#sheet .shbody{flex:1 1 auto;min-height:0;overflow:auto;overscroll-behavior:contain}
+/* min-height:0 to let it shrink below its content — it is the band that gives —
+   but not below 96px, and .box keeps overflow:auto rather than hidden, because
+   the pinned parts cannot give and something has to.
+
+   The sheet focuses the amount field as it opens, so on Android the keyboard is
+   always up, and interactive-widget=resizes-content shrinks 92dvh with it. About
+   368px of this column is flex:none; measured on the box, a 340px height left
+   .shbody at 0, clipped the categories out of reach and pushed the save button
+   past the bottom edge. Past the floor the whole box scrolls instead: the pinned
+   top gives up its place, which is what the single scroller used to do, and
+   nothing becomes unreachable. */
+#sheet .shbody{flex:1 1 auto;min-height:96px;overflow:auto;overscroll-behavior:contain}
 #sheet .box>.btn.wide{margin-top:14px}
 #sheet .head h3{font-family:var(--f-disp);font-size:18px;font-weight:600}
 #sheet .x{font-size:22px;color:var(--ink-3);min-width:var(--tap);min-height:var(--tap)}
@@ -462,8 +471,8 @@ nav button:active .ic{transform:scale(.9)}
 
 /* Scrollbars are desktop furniture. The app still scrolls; it just does not
    advertise it. */
-#view,#sheet .shbody{scrollbar-width:none}
-#view::-webkit-scrollbar,#sheet .shbody::-webkit-scrollbar{display:none}
+#view,#sheet .box,#sheet .shbody{scrollbar-width:none}
+#view::-webkit-scrollbar,#sheet .box::-webkit-scrollbar,#sheet .shbody::-webkit-scrollbar{display:none}
 
 /* The clock reflows every second. Reserving the digits' width stops the header
    jittering as the numerals change. */
@@ -489,16 +498,20 @@ header.top .clock{font-variant-numeric:tabular-nums}
 
    Split out, the figure alone leaves the label the width it had all along, and
    the buttons drop to a line of their own beneath it on a phone. Rows whose
-   amount column is a figure, a balance box or the ✎/× pair alone never needed
-   this — they measured 259px and 207px of label — and are left as they were. */
+   amount column is a figure or a balance box never needed this — they measured
+   259px and 207px of label — and are left as they were.
+
+   One line is the base, because a fourth column of ✎ and × costs nothing. The
+   second line is only for the rows that need it: a labelled button is what does
+   not fit, and .acts empties down to the ✎/× pair once a debt is settled, a DPS
+   is up to date or a bill is paid — those rows read as they always did. */
 .row .acts{display:flex;align-items:center;justify-content:flex-end;gap:3px;flex-wrap:wrap}
+.row:has(.acts){grid-template-columns:14px 1fr auto auto}
+/* Back to three columns, so the figure keeps its place beside the label exactly
+   as it does on every other row, and only .acts drops to a line of its own. */
 @media (max-width:699px){
-  .row:has(.acts){gap:7px 10px}
-  .row:has(.acts) .acts{grid-column:2/-1}
-}
-/* Wide enough for all four on one line, which is where they read best. */
-@media (min-width:700px){
-  .row:has(.acts){grid-template-columns:14px 1fr auto auto}
+  .row:has(.acts .btn){grid-template-columns:14px 1fr auto;gap:7px 10px}
+  .row:has(.acts .btn) .acts{grid-column:2/-1}
 }
 
 /* ---------- Khata Ledger System: tonal layering ----------
