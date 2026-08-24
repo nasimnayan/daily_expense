@@ -7,7 +7,7 @@
    connection you always get the current code, and the cache is only a
    fallback, so offline still works exactly as before. */
 
-const BUILD = '2026-08-04.1';
+const BUILD = '2026-08-24.1';
 const CACHE = `khata-${BUILD}`;
 
 const SHELL = [
@@ -65,8 +65,25 @@ self.addEventListener('fetch', e => {
        still consults the browser HTTP cache, and neither this server nor
        GitHub Pages sends no-cache on these files — so a released fix could sit
        behind a stale copy for minutes even though this branch is network-first
-       and BUILD was bumped. This asks the network directly. */
-    const net = fetch(url.href, { cache: 'reload', credentials: 'same-origin' });
+       and BUILD was bumped. This asks the network directly.
+
+       The redirect mode is the other half, and it is not a nicety. Fetching by
+       URL string follows redirects, so the answer comes back with .redirected
+       true — and respondWith() treats a redirected response as a network error
+       whenever the request did not ask to follow, which is every navigation
+       the browser makes. The page then dies as a bare ERR_FAILED with the
+       worker still installed and still intercepting, so reloading only repeats
+       it. That is not hypothetical: pointing Pages at a custom domain made
+       github.io answer 301, and every copy already installed on the old
+       address went dark. Asking for the redirect rather than following it
+       hands the browser an opaqueredirect, which it is allowed to follow on
+       its own. Subresources may not be answered that way, so they keep
+       following as before. */
+    const net = fetch(url.href, {
+      cache: 'reload',
+      credentials: 'same-origin',
+      redirect: e.request.mode === 'navigate' ? 'manual' : 'follow',
+    });
     e.respondWith(net.catch(() => caches.match(e.request).then(hit => hit || Response.error())));
     /* The copy kept for offline has to be written under waitUntil. Left as a
        bare .then the browser is free to stop this worker the moment the
