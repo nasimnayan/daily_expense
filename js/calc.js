@@ -32,6 +32,18 @@ export function nextDom(today, dd) {
   return isoOf(ny, nm, Math.min(Number(dd) || 1, lastDom(ny, nm)));
 }
 
+/* The date an entry is filed under. A day that has not happened yet is not a
+   day you spent money on, so anything after `today` becomes today rather than
+   being refused — a rejected save loses the amount already typed, and the
+   likely cause is a slipped year in a picker, not an intention to file in the
+   future. The shape is checked too: `max` on the input stops the picker, but a
+   pasted or scripted value arrives here regardless, and one unparseable string
+   in txn.date would sort under no day heading and leave the entry invisible. */
+export function entryDate(picked, today) {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(String(picked || ''))) return today;
+  return dayNum(picked) > dayNum(today) ? today : picked;
+}
+
 /* ---------------- lookups ---------------- */
 export const catOf = (S, id) => S.cats.find(c => c.id === id);
 export const acctOf = (S, id) => S.accts.find(a => a.id === id);

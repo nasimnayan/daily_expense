@@ -1418,7 +1418,7 @@ function openSheet(mode, payload, reuse) {
       <div class="grid2">
         <div><label class="fl" for="shAcct">${t('account')}</label>${acctSelect('shAcct', x.acct || (S.accts[0] && S.accts[0].id))}</div>
         <div><label class="fl" for="shDate">${t('date')}</label>
-          <input class="inp w" id="shDate" name="shDate" type="date" value="${x.date || today}"${isNew ? ' readonly' : ''}></div>
+          <input class="inp w" id="shDate" name="shDate" type="date" value="${x.date || today}" max="${today}"></div>
       </div>
       ${SH.type === 'expense' ? `<div class="chips" style="margin-top:12px">
         <button class="chip ${SH.planned ? 'on' : ''}" id="shPlanned">✓ ${t('planned')}</button></div>` : ''}`;
@@ -1552,7 +1552,7 @@ async function saveSheetTxn() {
   const prev = SH.txn.id ? S.txns.find(x => x.id === SH.txn.id) : null;
   const next = {
     id: prev ? prev.id : uid(),
-    date: val('shDate') || todayISO(),
+    date: C.entryDate(val('shDate'), todayISO()),
     ts: prev ? prev.ts : new Date().toISOString(),
     type: SH.type, amount: amt, note: val('shNote'), acct: val('shAcct'),
   };
@@ -1874,6 +1874,17 @@ document.addEventListener('change', async e => {
   if (d.bal) { const a = C.acctOf(S, d.bal); if (a) a.bal = Number(e.target.value) || 0; return queueSave(); }
   if (d.budget) { const c = C.catOf(S, d.budget); if (c) c.budget = e.target.value === '' ? null : Number(e.target.value); return queueSave(); }
   if (d.goalsaved) { const g = S.goals.find(x => x.id === d.goalsaved); if (g) g.saved = Number(e.target.value) || 0; return queueSave(); }
+  /* Back-dating moves which month the entry belongs to, and the figure under
+     the category is what is left in that month's envelope — so it has to be
+     read again or it sits there reporting the wrong month with conviction.
+     Only #shLeft depends on the date, so this repaints that one node instead
+     of rebuilding the sheet the way a chip tap does: a rebuild would take the
+     caret and the keyboard with it mid-entry. SH.txn.date is set first because
+     sheetLeftText reads the draft, not the input. */
+  if (e.target.id === 'shDate') {
+    if (SH && SH.txn) SH.txn.date = e.target.value;
+    return paintSheetLeft();
+  }
   if (e.target.id === 'stStart') { S.settings.monthStartDay = Math.min(28, Math.max(1, Number(e.target.value) || 1)); return change(); }
   if (e.target.id === 'stDaily') { S.settings.dailyBudget = Number(e.target.value) || 0; return change(); }
   if (e.target.id === 'bkFile') {
